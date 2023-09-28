@@ -1,0 +1,13 @@
+---
+title: "STAT 390 Weekly Progress Report 1"
+subtitle: "September 25-29"
+author: "Cindy Ha, Willie Xie, Erica Zhang"
+format: pdf
+editor: visual
+---
+
+## ★ Progress
+
+
+
+## ★ Next Steps
