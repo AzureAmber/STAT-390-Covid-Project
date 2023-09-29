@@ -11,10 +11,11 @@ editor: visual
 -   Set up [Github Repo](https://github.com/AzureAmber/STAT-390-Covid-Project)
 -   Found [dataset](https://doi.org/10.34740/KAGGLE/DSV/6559049) from Kaggle that met requirements
     -   67 variables
-    -   341,408 observations
--   Added dataset to raw data folder
+    -   341,408 observations from Jan 2020 to Sep 2023
+-   Added dataset to raw data folder and a dictionary for variable definitions
 -   Completed quick skim of dataset to check usability
-    -   Found missingness issues that will need to be addressed
+    -   1 date, 4 categorical, 62 numeric variables
+    -   Found missingness issues that will need to be addressed (15 variables > 80\% missing)
 
 ## ★ Plan/Next Steps
 

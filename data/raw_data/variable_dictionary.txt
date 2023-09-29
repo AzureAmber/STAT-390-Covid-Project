@@ -1,0 +1,74 @@
+iso_code                                3-letter country code
+continent                               Continent of geographic location
+location                                Geographic location
+date                                    Date of observation
+total_cases                             Total confirmed cases of COVID-19
+new_cases                               New confirmed cases of COVID-19
+new_cases_smoothed                      New confirmed cases of COVID-19 (7-day smoothed)
+total_deaths                            Total deaths attributed to COVID-19
+new_deaths                              New deaths attributed to COVID-19
+new_deaths_smoothed                     New deaths of COVID-19 (7-day smoothed)
+total_cases_per_million                 Total confirmed cases of COVID-10 per 1,000,000 people
+new_cases_per_million                   New confirmed cases of COVID-10 per 1,000,000 people
+new_cases_smoothed_per_million          Total confirmed cases of COVID-10 per 1,000,000 people (7-day smoothed)
+total_deaths_per_million                Total deaths attributed to COVID-10 per 1,000,000 people
+new_deaths_per_million                  New deaths attributed to COVID-10 per 1,000,000 people
+new_deaths_smoothed_per_million         New deaths attributed to COVID-10 per 1,000,000 people (7-day smoothed)
+reproduction_rate                       Real-time estimate of effective reproduction rate of COVID-19
+icu_patients                            Number of COVID-19 patients in intensive care units
+icu_patients_per_million                Number of COVID-19 patients in intensive care units per 1,000,000 people
+hosp_patients                           Number of COVID-19 patients in hospital
+hosp_patients_per_million               Number of COVID-19 patients in hospital per 1,000,000 people
+weekly_icu_admissions                   Number of COVID-19 patients newly admitted to intensive care units
+weekly_icu_admissions_per_million       Number of COVID-19 patients newly admitted to intensive care units per 1,000,000 people
+weekly_hosp_admissions                  Number of COVID-19 patients newly admitted to hospitals in a week
+weekly_hosp_admissions_per_million      Number of COVID-19 patients newly admitted to hospitals in a week per 1,000,000 people
+total_tests                             Total tests for COVID-19
+new_tests                               New tests for COVID-19
+total_tests_per_thousand                Total tests for COVID-19 per 1000 people
+new_tests_per_thousand                  New test for COVID-19 per 1000 people
+new_tests_smoothed                      New test for COVID-19 (7-day smoothed)
+new_tests_smoothed_per_thousand         New test for COVID-19 per 1000 people (7-day smoothed)
+positive_rate                           The share of COVID-19 tests that are positive
+tests_per_case                          Tests conducted per new confirmed case of COVID-19
+tests_units                             Units used by location to report testing data
+total_vaccinations                      Total number of COVID-19 vaccination does administered
+people_vaccinated                       Total number of people who received at least one vaccine dose
+people_fully_vaccinated                 Total number of people who received all doses
+total_boosters                          Total number of COVID-19 vaccination booster doses administered
+new_vaccinations                        New COVID-19 vaccination doses administered
+new_vaccinations_smoothed               New COVID-19 vaccination doses administered (Only for consecutive days)
+total_vaccinations_per_hundred          Total number of COVID-19 vaccination doses administered per 100 people
+people_vaccinated_per_hundred           Total number of people who received one vaccine dose per 100 people
+people_fully_vaccinated_per_hundred     Total number of people who received all doses per 100 people
+total_boosters_per_hundred              Total number of COVID-19 vaccine booster doses per 100 people
+new_vaccinations_smoothed_per_million   New COVID-19 vaccination doses administered per 1,000,000 people
+new_people_vaccinated_smoothed          Daily number of people receiving their first vaccine dose (7-day)
+new_people_vaccinated_smoothed_per_hundred      Daily number of people receiving their first vaccine dose per 100 people (7-day)
+stringency_index                        Government Response Stringency index
+population_density                      Number of people divided by land area
+median_age                              Median age of the population
+aged_65_older                           Share of population that is 65 years and older
+aged_70_older                           Share of population that is 70 years and older
+gdp_per_capita                          Gross domestic product
+extreme_poverty                         Share of the population living in extreme poverty
+cardiovasc_death_rate                   Death rate from cardiovascular diseases per 100,000 people
+diabetes_prevalence                     Diabetes prevalence in 2017
+female_smokers                          Share of women who smoke
+male_smokers                            Share of men who smoke
+handwashing_facilities                  Share of the population with basic handwashing facilities on premises
+hospital_beds_per_thousand              Hospital beds per 1,000 people
+life_expectancy                         Life expectancy at birth in 2019
+human_development_index                 Composite index measuring average achievement in human development
+population                              Population
+excess_mortality_cumulative_absolute    Percentage difference between the reported number of weekly or monthly deaths
+excess_mortality_cumulative             Percentage difference between the cumulative number of deaths since 1 January 2020
+excess_mortality                        Cumulative difference between the reported number of deaths since 1 January 2020
+excess_mortality_cumulative_per_million         Cumulative difference between the reported number of deaths
+
+
+
+
+
+
+
