@@ -6,8 +6,34 @@ format: pdf
 editor: visual
 ---
 
-## ★ Progress
+## ★ Progress/Accomplishments
 
+-   Set up [Github Repo](https://github.com/AzureAmber/STAT-390-Covid-Project)
+-   Found [dataset](https://doi.org/10.34740/KAGGLE/DSV/6559049) from Kaggle that met requirements
+    -   67 variables
+    -   341,408 observations
+-   Added dataset to raw data folder
+-   Completed quick skim of dataset to check usability
+    -   Found missingness issues that will need to be addressed
 
+## ★ Plan/Next Steps
 
-## ★ Next Steps
+-   Work on proposal to present on **Thursday, Oct 5th**
+
+    -   Develop a prediction question we want to answer regarding Covid-19
+
+        -   Determine target variable
+
+        -   Decide between the appropriate regression or classification models
+
+        -   Complete any necessary data pre-processing steps (e.g. mismatched data types, missingness, etc.)
+
+-   Set up timeline to complete project by deadline
+
+-   Obtain any necessary sources/references to help answer our question
+
+-   After getting approval to move forward, conduct a thorough EDA
+
+    -   Split data into training and testing sets
+
+We are optimistic about the current progress of the project and plan to meet regularly.
