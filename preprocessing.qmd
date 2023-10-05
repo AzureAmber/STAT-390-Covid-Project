@@ -1,0 +1,80 @@
+---
+title: "Preprocessing Review"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+execute: 
+  warning: false
+  echo: false
+---
+
+## Summary
+
+From the initial dataset, preprocessing aims to fix some large issues concerning the raw dataset before using the data for model training.
+
+-   Missingness
+-   Data Type Mismatches
+-   Multicollinearity
+
+## Missingness and Data Types
+
+```{r}
+#| label: missingness
+
+options(dplyr.print_max = 1e9)
+library(tidyverse)
+library(skimr)
+
+data = read_csv('data/raw_data/owid-covid-data.csv')
+
+data %>% skim_without_charts() %>%
+  select(skim_variable, n_missing, complete_rate) %>%
+  arrange(complete_rate)
+```
+
+## Multicollinearity
+
+```{r}
+#| label: collinear
+
+data_cleaned = data %>%
+  select(-c(continent, location, date, iso_code,
+            tests_units, reproduction_rate, icu_patients, icu_patients_per_million, hosp_patients,
+            hosp_patients_per_million, weekly_icu_admissions, weekly_icu_admissions_per_million, weekly_hosp_admissions,
+            weekly_hosp_admissions_per_million, total_tests, new_tests, total_tests_per_thousand, new_tests_per_thousand,
+            new_tests_smoothed, new_tests_smoothed_per_thousand, positive_rate, tests_per_case, total_vaccinations,
+            people_vaccinated, people_fully_vaccinated, total_boosters, new_vaccinations, new_vaccinations_smoothed,
+            total_vaccinations_per_hundred, people_vaccinated_per_hundred, people_fully_vaccinated_per_hundred,
+            total_boosters_per_hundred, new_vaccinations_smoothed_per_million, new_people_vaccinated_smoothed,
+            new_people_vaccinated_smoothed_per_hundred, stringency_index, extreme_poverty, female_smokers, male_smokers,
+            handwashing_facilities, hospital_beds_per_thousand, excess_mortality_cumulative_absolute,
+            excess_mortality_cumulative, excess_mortality, excess_mortality_cumulative_per_million))
+
+cor(data_cleaned, use = "complete.obs")
+```
+
+## Initial Final dataset
+
+```{r}
+#| label: final
+
+data_final = data %>%
+  select(-c(life_expectancy, human_development_index, population, iso_code,
+            tests_units, reproduction_rate, icu_patients, icu_patients_per_million, hosp_patients,
+            hosp_patients_per_million, weekly_icu_admissions, weekly_icu_admissions_per_million, weekly_hosp_admissions,
+            weekly_hosp_admissions_per_million, total_tests, new_tests, total_tests_per_thousand, new_tests_per_thousand,
+            new_tests_smoothed, new_tests_smoothed_per_thousand, positive_rate, tests_per_case, total_vaccinations,
+            people_vaccinated, people_fully_vaccinated, total_boosters, new_vaccinations, new_vaccinations_smoothed,
+            total_vaccinations_per_hundred, people_vaccinated_per_hundred, people_fully_vaccinated_per_hundred,
+            total_boosters_per_hundred, new_vaccinations_smoothed_per_million, new_people_vaccinated_smoothed,
+            new_people_vaccinated_smoothed_per_hundred, stringency_index, extreme_poverty, female_smokers, male_smokers,
+            handwashing_facilities, hospital_beds_per_thousand, excess_mortality_cumulative_absolute,
+            excess_mortality_cumulative, excess_mortality, excess_mortality_cumulative_per_million))
+
+data_final %>% skim_without_charts() %>%
+    select(skim_variable, n_missing, complete_rate)
+```
