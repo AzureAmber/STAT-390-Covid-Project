@@ -2,6 +2,7 @@ library(tidyverse)
 data <- read_csv("data/raw_data/owid-covid-data.csv")
 missingness <- naniar::miss_var_summary(data)
 
+# preprocessing for just the usa data
 
 data %>% 
   filter(iso_code == "USA") %>% 
