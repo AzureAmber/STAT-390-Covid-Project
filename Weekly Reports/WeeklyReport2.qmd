@@ -1,0 +1,24 @@
+---
+title: "STAT 390 Weekly Report 2"
+subtitle: "Oct 9-13"
+author: "Group 2: Cindy Ha, Willie Xie, Erica Zhang"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+execute: 
+  warning: false
+  echo: false
+---
+## Progress/Accomplishments
+
+
+
+## Challenges
+
+
+## Plan/Next Steps
+
