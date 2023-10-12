@@ -31,7 +31,7 @@ data_clean = data_cur %>% select(-any_of(names_filt))
 # remove collinearity
 # View(cor(data_clean %>% select(-any_of(c('iso_code', 'continent', 'location', 'date'))), use = 'complete.obs'))
 
-names_col = c('iso_code', 'median_age', 'aged_65_older', 'aged_70_older', 'human_development_index', 'total_deaths',
+names_col = c('iso_code', 'median_age', 'aged_65_older', 'aged_70_older', 'human_development_index',
               'new_cases_smoothed', 'new_deaths_smoothed', 'new_deaths_smoothed_per_million', 'new_cases_smoothed_per_million')
 
 data_clean2 = data_clean %>% select(-any_of(names_col))
@@ -52,6 +52,60 @@ sort(table(data_clean2$location[is.na(data_clean2$extreme_poverty)]))
 data_clean3 = data_clean2 %>% filter(date < as.Date("2023-01-01"))
 
 # View(data_clean3 %>% skim_without_charts())
+# View(data_clean3[is.na(data_clean3$new_deaths),])
+
+
+
+# random missingness
+# Since the amount of missingness is few for new_deaths, impute with 0
+data_clean4 = data_clean3 %>%
+  mutate(
+    new_deaths = ifelse(is.na(new_deaths), 0, new_deaths),
+    new_deaths_per_million = ifelse(is.na(new_deaths_per_million), 0, new_deaths_per_million)
+  )
+# Replace missingness in total deaths by the last non-zero value
+data_clean4 = data_clean4 %>%
+  group_by(location) %>%
+  fill(total_deaths, .direction = "downup") %>%
+  ungroup()
+data_clean4 = data_clean4 %>%
+  mutate(
+    total_deaths_per_million = ifelse(is.na(total_deaths_per_million), total_deaths / population * 1e6, total_deaths_per_million)
+  )
+# Replace missingness in total cases by the last non-zero value
+data_clean4 = data_clean4 %>%
+  group_by(location) %>%
+  fill(total_cases, .direction = "downup") %>%
+  ungroup()
+data_clean4 = data_clean4 %>%
+  mutate(
+    total_cases_per_million = ifelse(is.na(total_cases_per_million), total_cases / population * 1e6, total_cases_per_million)
+  )
+# Replace missingness in new cases by the change in total cases
+data_clean4 = data_clean4 %>%
+  group_by(location) %>%
+  mutate(
+    new_cases = ifelse(is.na(new_cases), total_cases - lag(total_cases, default = 0), new_cases)
+  ) %>%
+  ungroup()
+data_clean4 = data_clean4 %>%
+  mutate(
+    new_cases_per_million = ifelse(is.na(new_cases_per_million), new_cases / population * 1e6, new_cases_per_million)
+  )
+# Replace missingness in reproduction rate by the last non-zero value
+data_clean4 = data_clean4 %>%
+  group_by(location) %>%
+  fill(reproduction_rate, .direction = "downup") %>%
+  ungroup()
+
+# View(data_clean4 %>% skim_without_charts())
+
+
+View(table(data_clean4[is.na(data_clean4$extreme_poverty),"location"]))
+
+
+
+
 
 
 
