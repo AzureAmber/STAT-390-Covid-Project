@@ -121,31 +121,13 @@ data_clean4 = data_clean4 %>%
 
 
 
-
-
-
 # country missingness
-x = data_clean4 %>% select(location, extreme_poverty, G20, G24, continent)
 
-ggplot(x, aes(extreme_poverty)) +
-  geom_histogram() +
-  facet_wrap(~continent) +
-  scale_x_continuous(n.breaks = 10)
+data_clean5 = data_clean4 %>% 
+  group_by(continent) %>% 
+  mutate(extreme_poverty = ifelse(is.na(extreme_poverty), median(extreme_poverty, na.rm = TRUE), extreme_poverty)) %>% 
+  ungroup() 
 
-# impute extreme poverty by average extreme poverty in their continent
-y = data_clean4 %>% filter(G20, continent == 'Europe')
-# table(y$extreme_poverty)
-
-# France = Europe impute with 2.3 / 3 = 0.77
-# Germany = Europe impute with 2.3 / 3  0.77
-
-z = data_clean4 %>% filter(G20, continent == 'Asia', extreme_poverty < 10)
-# table(z$extreme_poverty)
-
-# Japan = Asia impute with 6.6 / 3 = 2.2
-# Lebanon = Asia impute with 6.6 / 3 = 2,2
-# Philippines = Asia impute with 6.6 / 3 = 2.2
-# Saudi Arabia = Asia impute with 6.6 / 3 = 2.2
-
+skimr::skim(data_clean5)
 
 
