@@ -22,6 +22,8 @@ data_cur = data %>% filter(location %in% c(g20, g24))
 
 
 
+
+
 # remove variables with large missingness
 results = data_cur %>% skim_without_charts()
 names_filt = results$skim_variable[results$complete_rate < 0.7]
@@ -40,6 +42,8 @@ data_clean2 = data_clean %>% select(-any_of(names_col))
 
 
 
+
+
 # missingness by rows
 # View(data_clean2 %>% skim_without_charts())
 sort(table(data_clean2$location[is.na(data_clean2$extreme_poverty)]))
@@ -49,10 +53,13 @@ sort(table(data_clean2$location[is.na(data_clean2$extreme_poverty)]))
 # x = data_cur %>% filter(is.na(stringency_index))
 # y = x %>% group_by(location) %>% summarise(v = n(), mi = min(date), mx = max(date))
 # it appears stringency index is missing starting at 2023
+# *** Note *** This date can vary by country. Might need to adjust
 data_clean3 = data_clean2 %>% filter(date < as.Date("2023-01-01"))
 
 # View(data_clean3 %>% skim_without_charts())
 # View(data_clean3[is.na(data_clean3$new_deaths),])
+
+
 
 
 
@@ -101,10 +108,15 @@ data_clean4 = data_clean4 %>%
 # View(data_clean4 %>% skim_without_charts())
 
 
-View(table(data_clean4[is.na(data_clean4$extreme_poverty),"location"]))
 
 
 
+# create additional predictors
+data_clean4 = data_clean4 %>%
+  mutate(
+    G20 = location %in% g20,
+    G24 = location %in% g24
+  )
 
 
 
