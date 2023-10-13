@@ -15,20 +15,25 @@ execute:
 ---
 
 ## Progress/Accomplishments
-- Finalized prediction question: Predicting `new_cases` of COVID-19
-- Completed additional data pre-processing (`Preprocessing Code/adv_preprocessing.R`)
-  - Selected only variables with 70% completion 
-  - Addressed multicollinearity
-  - Imputed some missingness issues
-    - `new_deaths`: impute with 0
-    - `total_deaths`, `total_cases, `reproduction`: replace with the last non-zero value
-    - `new_cases`: replace by change in total cases
-- Researched more about appropriate models to use for classification with R
 
-## Challenges
-- 
+-   Finalized prediction question: Predicting `new_cases` of COVID-19
+-   Completed additional data pre-processing (`Preprocessing Code/adv_preprocessing.R`)
+    -   Selected only variables with 70% completion
+    -   Addressed multicollinearity
+    -   Imputed some missingness issues
+        -   `new_deaths`: impute with 0
+        -   `total_deaths`, `total_cases,`reproduction\`: replace with the last non-zero value
+        -   `new_cases`: replace by change in total cases
+        -   `extreme_poverty`: replace by respective continent median extreme_poverty value
+-   Researched more about appropriate models to use for classification with R
+-   Brought back in some more recent 2023 data for further testing purpose; working to deal with large missingness for some significant predictor variables, especially for countries that just stopped reporting this year
+
+## \## Challenges
+
+-   Large amount of missing data for predictor variables (ie. **vaccination**, **hospital**, **icu**) in earliest time and more recent data reporting. Trying to narrow down on a time period where at least 60% of data cumulatively is not missing and then apply propoer imputation; meanwhile, find if these variables are highly correlated by checking correlation matrix
 
 ## Next Steps
-- Save finalized dataset to `data/processed_data` folder 
-- Split data into training and testing 
-- Build recipes & models 
+
+-   Save finalized dataset to `data/processed_data` folder
+-   Split data into training and testing using `time_series_split` with older data for training and most recent data for testing
+-   Build recipes & models
