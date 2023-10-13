@@ -22,19 +22,17 @@ execute:
     -   Addressed multicollinearity
     -   Imputed some missingness issues
         -   `new_deaths`: impute with 0
-        -   `total_deaths`, `total_cases,`reproduction\`: replace with the last non-zero value
-        -   `new_cases`: replace by change in total cases
-<<<<<<< HEAD
+        -   `total_deaths`, `total_cases`, `reproduction`: replace with the last non-zero value
+        -   `new_cases`: replace by change in total cases \<\<\<\<\<\<\< HEAD
         -   `extreme_poverty`: replace by respective continent median extreme_poverty value
 -   Researched more about appropriate models to use for classification with R
 -   Brought back in some more recent 2023 data for further testing purpose; working to deal with large missingness for some significant predictor variables, especially for countries that just stopped reporting this year
 
-## \## Challenges
+## Challenges
 
--   Large amount of missing data for predictor variables (ie. **vaccination**, **hospital**, **icu**) in earliest time and more recent data reporting. Trying to narrow down on a time period where at least 60% of data cumulatively is not missing and then apply propoer imputation; meanwhile, find if these variables are highly correlated by checking correlation matrix
+-   Large amount of missing data for predictor variables (ie. **vaccination**, **hospital**, **icu**) in earliest time and more recent data reporting. Trying to narrow down on a time period where at least 60% of data cumulatively is not missing and then apply proper imputation; meanwhile, find if these variables are highly correlated by checking correlation matrix
 -   One predictor, `extreme_poverty` has missingness due to specific countries (imputed with geographic average)
 -   Determining the time frame for the dataset since early data lacks vaccinations while later data is not collected.
-
 
 ## Next Steps
 
