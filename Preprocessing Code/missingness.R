@@ -36,11 +36,9 @@ first_report <- data_cur %>%
 data_cur_w_first_report <- data_cur %>% 
   full_join(first_report, by = "iso_code")
 
-data_cur_w_first_report %>% 
-  filter(iso_code == "DZA")
 
 
-data_cur_w_first_report %>% 
+data_clean_vax <- data_cur_w_first_report %>% 
   mutate(total_vaccinations = ifelse(date < first_report,replace_na(total_vaccinations,0), total_vaccinations)) %>% 
   select(iso_code, total_vaccinations, date, first_report) %>% 
   filter(is.na(total_vaccinations))
