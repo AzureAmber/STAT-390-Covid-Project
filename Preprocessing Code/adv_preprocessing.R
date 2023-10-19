@@ -16,6 +16,12 @@ g20 = c('Argentina', 'Australia', 'Brazil', 'Canada', 'China', 'France', 'German
 # Syria, Congo, Cote d\'Ivoire, Nigeria, Gabon, Guatemala, Syria, Trinidad, Venezuela, Peru are excluded
 g24 = c('Argentina', 'Brazil', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
+<<<<<<< HEAD
+=======
+
+# data_cur = data %>% filter(location %in% c(g20, g24))
+data_clean = data %>% filter(location %in% c(g20, g24))
+>>>>>>> main
 
 # data_cur = data %>% filter(location %in% c(g20, g24))
 data_clean = data %>% filter(location %in% c(g20, g24))
@@ -129,14 +135,25 @@ data_clean5 = data_clean4 %>%
 skimr::skim(data_clean5)
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 # additional column missingess
 # linear = dont use impute 0
 # tree based = give large value
 # NN = binary
+<<<<<<< HEAD
   
 data_clean6 = data_clean5 %>%
   group_by(location) %>%
     mutate(
+=======
+
+data_clean6 = data_clean5 %>%
+  group_by(location) %>%
+  mutate(
+>>>>>>> main
     tests_units = ifelse(is.na(tests_units) & date < as.Date("2021-02-01"), 0, tests_units),
     icu_patients = ifelse(is.na(icu_patients) & date < as.Date("2021-02-01"), 0, icu_patients),
     hosp_patients = ifelse(is.na(hosp_patients) & date < as.Date("2021-02-01"), 0, hosp_patients),
