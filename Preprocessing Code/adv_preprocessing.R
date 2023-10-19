@@ -11,24 +11,23 @@ data = read_csv('data/raw_data/owid-covid-data.csv')
 # select data by the g20 or g24
 # EU is excluded is many of its data is missing
 g20 = c('Argentina', 'Australia', 'Brazil', 'Canada', 'China', 'France', 'Germany',
-        'India', 'Indonesia', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
+        'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
         'Saudi Arabia', 'South Africa', 'Turkey', 'United Kingdom', 'United States')
 # Syria, Congo, Cote d\'Ivoire, Nigeria, Gabon, Guatemala, Syria, Trinidad, Venezuela, Peru are excluded
-g24 = c('Algeria', 'Argentina', 'Brazil', 'China', 'Colombia', 'Ecuador', 'Egypt',
-        'Ethiopia', 'Ghana', 'Haiti', 'India', 'Iran', 'Kenya', 'Lebanon', 'Mexico',
-        'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
+g24 = c('Argentina', 'Brazil', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
+        'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
 
-data_cur = data %>% filter(location %in% c(g20, g24))
-
+# data_cur = data %>% filter(location %in% c(g20, g24))
+data_clean = data %>% filter(location %in% c(g20, g24))
 
 
 
 
 # remove variables with large missingness
-results = data_cur %>% skim_without_charts()
-names_filt = results$skim_variable[results$complete_rate < 0.7]
-
-data_clean = data_cur %>% select(-any_of(names_filt))
+# results = data_cur %>% skim_without_charts()
+# names_filt = results$skim_variable[results$complete_rate < 0.7]
+# 
+# data_clean = data_cur %>% select(-any_of(names_filt))
 
 # remove collinearity
 # View(cor(data_clean %>% select(-any_of(c('iso_code', 'continent', 'location', 'date'))), use = 'complete.obs'))
@@ -131,3 +130,26 @@ data_clean5 = data_clean4 %>%
 skimr::skim(data_clean5)
 
 
+
+# additional column missingess
+# linear = dont use impute 0
+# tree based = give large value
+# NN = binary
+
+data_clean6 = data_clean5 %>%
+  group_by(location) %>%
+  mutate(
+    tests_units = ifelse(is.na(tests_units) & date < as.Date("2021-02-01"), 0, tests_units),
+    icu_patients = ifelse(is.na(icu_patients) & date < as.Date("2021-02-01"), 0, icu_patients),
+    hosp_patients = ifelse(is.na(hosp_patients) & date < as.Date("2021-02-01"), 0, hosp_patients),
+    total_tests = ifelse(is.na(total_tests) & date < as.Date("2021-02-01"), 0, total_tests),
+    new_tests = ifelse(is.na(new_tests) & date < as.Date("2021-02-01"), 0, new_tests),
+    positive_rate = ifelse(is.na(positive_rate) & date < as.Date("2021-02-01"), 0, positive_rate),
+    tests_per_case = ifelse(is.na(tests_per_case) & date < as.Date("2021-02-01"), 0, tests_per_case),
+    total_vaccinations = ifelse(is.na(total_vaccinations) & date < as.Date("2021-02-01"), 0, total_vaccinations),
+    people_vaccinated = ifelse(is.na(people_vaccinated) & date < as.Date("2021-02-01"), 0, people_vaccinated),
+    new_vaccinations = ifelse(is.na(new_vaccinations) & date < as.Date("2021-02-01"), 0, new_vaccinations)
+  ) %>%
+  ungroup()
+
+View(data_clean6 %>% skim_without_charts())
