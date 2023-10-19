@@ -131,3 +131,4 @@ data_clean5 = data_clean4 %>%
 skimr::skim(data_clean5)
 
 
+
