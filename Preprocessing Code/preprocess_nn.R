@@ -61,6 +61,8 @@ data_nn2 = data_nn %>%
 # - reproduction_rate by last non-zero value
 # - extreme_poverty by median extreme_poverty value by continent
 # - rest of other predictors by last non-zero value
+
+#   ***** REPLACE data_nn2 here with the training set *****
 data_nn3 = data_nn2 %>%
   mutate(
     new_deaths = ifelse(is.na(new_deaths), 0, new_deaths),

@@ -23,7 +23,7 @@ execute:
     -   Imputed some missingness issues
         -   `new_deaths`: impute with 0
         -   `total_deaths`, `total_cases`, `reproduction`: replace with the last non-zero value
-        -   `new_cases`: replace by change in total cases 
+        -   `new_cases`: replace by change in total cases
         -   `extreme_poverty`: replace by respective continent median extreme_poverty value
 -   Researched more about appropriate models to use for classification with R
 -   Brought back in some more recent 2023 data for further testing purpose; working to deal with large missingness for some significant predictor variables, especially for countries that just stopped reporting this year
