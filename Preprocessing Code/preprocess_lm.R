@@ -38,6 +38,8 @@ data_lm = data_cur %>% select(-any_of(c(names_filt, names_col)))
 # - reproduction_rate by last non-zero value
 # - extreme_poverty by median extreme_poverty value by continent
 # - rest of other predictors by last non-zero value
+
+#   ***** REPLACE data_lm here with the training set *****
 data_lm2 = data_lm %>%
   mutate(
     new_deaths = ifelse(is.na(new_deaths), 0, new_deaths),
