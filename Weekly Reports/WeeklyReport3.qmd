@@ -19,7 +19,7 @@ execute:
 -   Finishing randomness preprocessing for various model types including linear `Preprocessing Code/preprocess_lm`, tree based `Preprocessing Code/preprocess_tree`, and neural network `Preprocessing Code/preprocess_nn`.
 -   Removed countries in dataset with numerous predictors with large missingness.
 -   Determined dates to split data into training and testing sets. Training will be data before 2023 and testing will starting 2023.
--   Will use clustering with `life_expectancy` to make predictions for some missing values and then impute predictor variables like vaccination, extreme poverty and icu units with cluster median/mode. 
+-   Will use clustering with `life_expectancy` to make predictions for some random missing values and then impute predictor variables like vaccination, extreme poverty and icu units with cluster median/mode. 
 
 ## Challenges
 
