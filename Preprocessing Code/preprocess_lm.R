@@ -1,6 +1,8 @@
 library(tidyverse)
 library(skimr)
 library(lubridate)
+library(cluster)
+library(factoextra)
 
 # linear models = remove predictors
 # tree based models = give large values
@@ -89,9 +91,33 @@ data_lm2 = data_lm2 %>%
   ungroup()
 
 
-
 # View(data_lm2 %>% skim_without_charts())
 # View(cor(data_lm2 %>% select(-c(continent, location, date, G20, G24))))
+
+# **CLUSTERING METHOD**
+# Reference: https://www.statology.org/k-means-clustering-in-r/
+
+# 1. Set seed
+set.seed(390)
+
+#2. Find optimal # of clusters using gap statistic
+data_lm3 <- data_lm2 |> 
+    select_if(~ all(!is.na(.))) |>    # Select columns with no NA values
+    select_if(is.numeric) |>          # Select numeric columns
+    scale()                           # Scale the columns
+
+gap_stat <- clusGap(data_lm3,
+                    FUN = kmeans,
+                    nstart = 25,
+                    K.max = 10,
+                    B = 50)
+
+# Plot number of clusters vs. gap statistic
+fviz_gap_stat(gap_stat)
+
+#2.1 Can also find optimal K with this method (takes longer to run...)
+# fviz_nbclust(data_lm3, kmeans, method = "wss")
+
 
 
 
