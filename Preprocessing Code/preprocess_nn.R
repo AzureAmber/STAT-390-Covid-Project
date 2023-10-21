@@ -53,6 +53,11 @@ data_nn2 = data_nn %>%
   )
 # SPLIT INTO TRAINING AND TESTING SET HERE FOR THE ABOVE DATAS
 
+train_nn  <- data_nn2 |> arrange(date) %>% filter(date < as.Date("2023-01-01"))
+test_nn <- data_nn2 |> arrange(date) %>% filter(date >= as.Date("2023-01-01"))
+
+write_rds(train_nn, 'data/processed_data/train_nn.rds')
+write_rds(test_nn, 'data/processed_data/test_nn.rds')
 
 # Imputation for random missingness
 # Either impute using process below   OR    impute by clustering
@@ -63,7 +68,7 @@ data_nn2 = data_nn %>%
 # - rest of other predictors by last non-zero value
 
 #   ***** REPLACE data_nn2 here with the training set *****
-data_nn3 = data_nn2 %>%
+data_nn3 = train_nn %>%
   mutate(
     new_deaths = ifelse(is.na(new_deaths), 0, new_deaths),
     new_deaths_per_million = ifelse(is.na(new_deaths_per_million), 0, new_deaths_per_million)
