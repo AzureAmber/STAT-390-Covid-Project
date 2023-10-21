@@ -19,6 +19,7 @@ execute:
 -   Finishing randomness preprocessing for various model types including linear `Preprocessing Code/preprocess_lm`, tree based `Preprocessing Code/preprocess_tree`, and neural network `Preprocessing Code/preprocess_nn`.
 -   Removed countries in dataset with numerous predictors with large missingness.
 -   Determined dates to split data into training and testing sets. Training will be data before 2023 and testing will starting 2023.
+-   Will use clustering with `life_expectancy` to make predictions for some random missing values and then impute predictor variables like vaccination, extreme poverty and icu units with cluster median/mode. 
 
 ## Challenges
 
@@ -27,6 +28,11 @@ execute:
 
 ## Next Steps
 
--   Create a training and testing set for each dataset used for different model types. Also, generate validation sets from training set.
+-   Generate validation sets from training set.
 -   Determining how to deal with missingness in the testing set for different models.
--   Apply imputation to random missingness in dataset using clustering by predictor **life_expectancy**.
+-   EDA should be mostly done - can start with training models.
+ 
+
+
+
+
