@@ -29,7 +29,11 @@ data_lm = data_cur %>% select(-any_of(c(names_filt, names_col)))
 # View(cor(data_tree %>% select(-c(continent, location, date, G20, G24)), use = "complete.obs"))
 # SPLIT INTO TRAINING AND TESTING SET HERE FOR THE ABOVE DATAS
 
+train_lm  <- data_lm |> arrange(date) %>% filter(date < as.Date("2023-01-01"))
+test_lm <- data_lm |> arrange(date) %>% filter(date >= as.Date("2023-01-01"))
 
+write_rds(train_lm, 'data/processed_data/train_lm.rds')
+write_rds(test_lm, 'data/processed_data/test_lm.rds')
 
 # Imputation for random missingness
 # Either impute using process below   OR    impute by clustering
@@ -40,7 +44,7 @@ data_lm = data_cur %>% select(-any_of(c(names_filt, names_col)))
 # - rest of other predictors by last non-zero value
 
 #   ***** REPLACE data_lm here with the training set *****
-data_lm2 = data_lm %>%
+data_lm2 = train_lm  %>%
   mutate(
     new_deaths = ifelse(is.na(new_deaths), 0, new_deaths),
     new_deaths_per_million = ifelse(is.na(new_deaths_per_million), 0, new_deaths_per_million)
