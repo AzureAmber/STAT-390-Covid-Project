@@ -23,29 +23,21 @@ data_cur = data %>%
 results = data_cur %>% skim_without_charts()
 names_filt = results$skim_variable[results$complete_rate < 0.7]
 names_filtn = setdiff(names_filt,
-                      c('icu_patients', 'hosp_patients', 'total_tests', 'new_tests',
-                        'positive_rate', 'total_vaccinations', 'people_vaccinated'))
+                      c('total_tests', 'new_tests', 'positive_rate',
+                        'total_vaccinations', 'people_vaccinated'))
 names_col = c('iso_code', 'median_age', 'aged_65_older', 'aged_70_older',
               'human_development_index', 'new_cases_smoothed', 'new_deaths_smoothed',
               'new_deaths_smoothed_per_million', 'new_cases_smoothed_per_million')
 data_tree = data_cur %>% select(-any_of(c(names_filtn, names_col)))
 # View(cor(data_tree %>% select(-c(continent, location, date, G20, G24)), use = "complete.obs"))
-# SPLIT INTO TRAINING AND TESTING SET HERE FOR THE ABOVE DATAS
 
-train_tree  <- data_tree |> arrange(date) %>% filter(date < as.Date("2023-01-01"))
-test_tree <- data_tree |> arrange(date) %>% filter(date >= as.Date("2023-01-01"))
 
-write_rds(train_tree, 'data/processed_data/train_tree.rds')
-write_rds(test_tree, 'data/processed_data/test_tree.rds')
 
+#   ***** REPLACE data_tree2 here with the training set *****
 # Imputation for large column missingness: Tree based = Large Value
 v = 1e15
-data_tree2 = data_tree %>%
+data_tree2 = train_tree %>%
   mutate(
-    icu_patients = ifelse(is.na(icu_patients) & (date < as.Date("2021-02-01") | date > as.Date("2022-03-01")),
-                          v, icu_patients),
-    hosp_patients = ifelse(is.na(hosp_patients) & (date < as.Date("2021-02-01") | date > as.Date("2022-03-01")),
-                           v, hosp_patients),
     total_tests = ifelse(is.na(total_tests) & (date < as.Date("2021-02-01") | date > as.Date("2022-03-01")),
                          v, total_tests),
     new_tests = ifelse(is.na(new_tests) & (date < as.Date("2021-02-01") | date > as.Date("2022-03-01")),
@@ -57,6 +49,17 @@ data_tree2 = data_tree %>%
     people_vaccinated = ifelse(is.na(people_vaccinated) & (date < as.Date("2021-02-01") | date > as.Date("2022-03-01")),
                                v, people_vaccinated)
   )
+# SPLIT INTO TRAINING AND TESTING SET HERE FOR THE ABOVE DATAS
+
+train_tree <- data_tree2 |> arrange(date) %>% filter(date < as.Date("2023-01-01"))
+test_tree <- data_tree2 |> arrange(date) %>% filter(date >= as.Date("2023-01-01"))
+
+# write_rds(train_tree, 'data/processed_data/train_tree.rds')
+# write_rds(test_tree, 'data/processed_data/test_tree.rds')
+
+# View(train_tree %>%
+#        filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
+#        skim_without_charts())
 
 
 
@@ -68,8 +71,7 @@ data_tree2 = data_tree %>%
 # - extreme_poverty by median extreme_poverty value by continent
 # - rest of other predictors by last non-zero value
 
-#   ***** REPLACE data_tree2 here with the training set *****
-data_tree3 = train_tree %>%
+data_tree3 = data_tree2 %>%
   mutate(
     new_deaths = ifelse(is.na(new_deaths), 0, new_deaths),
     new_deaths_per_million = ifelse(is.na(new_deaths_per_million), 0, new_deaths_per_million)
@@ -116,8 +118,6 @@ data_tree3 = data_tree3 %>%
 
 data_tree3 = data_tree3 %>%
   group_by(location) %>%
-  fill(icu_patients, .direction = "downup") %>%
-  fill(hosp_patients, .direction = "downup") %>%
   fill(total_tests, .direction = "downup") %>%
   fill(positive_rate, .direction = "downup") %>%
   fill(total_vaccinations, .direction = "downup") %>%

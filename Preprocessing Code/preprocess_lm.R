@@ -34,8 +34,11 @@ data_lm = data_cur %>% select(-any_of(c(names_filt, names_col)))
 train_lm  <- data_lm |> arrange(date) %>% filter(date < as.Date("2023-01-01"))
 test_lm <- data_lm |> arrange(date) %>% filter(date >= as.Date("2023-01-01"))
 
-write_rds(train_lm, 'data/processed_data/train_lm.rds')
-write_rds(test_lm, 'data/processed_data/test_lm.rds')
+# write_rds(train_lm, 'data/processed_data/train_lm.rds')
+# write_rds(test_lm, 'data/processed_data/test_lm.rds')
+
+
+
 
 # Imputation for random missingness
 # Either impute using process below   OR    impute by clustering
@@ -93,6 +96,8 @@ data_lm2 = data_lm2 %>%
 
 # View(data_lm2 %>% skim_without_charts())
 # View(cor(data_lm2 %>% select(-c(continent, location, date, G20, G24))))
+
+
 
 # **CLUSTERING METHOD**
 # Reference: https://www.statology.org/k-means-clustering-in-r/
