@@ -36,7 +36,7 @@ data_tree = data_cur %>% select(-any_of(c(names_filtn, names_col)))
 #   ***** REPLACE data_tree2 here with the training set *****
 # Imputation for large column missingness: Tree based = Large Value
 v = 1e15
-data_tree2 = train_tree %>%
+data_tree2 = data_tree %>%
   mutate(
     total_tests = ifelse(is.na(total_tests) & (date < as.Date("2021-02-01") | date > as.Date("2022-03-01")),
                          v, total_tests),

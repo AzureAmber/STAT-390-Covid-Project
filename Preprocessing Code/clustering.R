@@ -19,7 +19,7 @@ library(tidyclust)
 
 train_freena = na.omit(train_tree) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
-  filter(!is.na(stringency_index))
+  filter(!is.na(life_expectancy))
 folds = vfold_cv(train_freena, v = 5, repeats = 3)
 
 # Define model
@@ -27,7 +27,7 @@ cluster_model = k_means(num_clusters = tune()) %>%
   set_engine("ClusterR")
 
 # Define Recipe and workflow
-cluster_recipe = recipe(~ stringency_index,
+cluster_recipe = recipe(~ life_expectancy,
                         data = train_freena) %>%
   step_normalize(all_numeric_predictors())
 cluster_wflow = workflow() %>%
@@ -58,7 +58,7 @@ cluster_tuned %>% collect_metrics()
 
 
 # 2. Predictions using clustering
-cluster_model = k_means(num_clusters = 2) %>%
+cluster_model = k_means(num_clusters = 4) %>%
   set_engine("ClusterR")
 cluster_wflow = workflow() %>%
   add_model(cluster_model) %>%
@@ -71,28 +71,33 @@ cluster_fit %>% extract_cluster_assignment()
 
 cur_set = train_tree %>% filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01")))
 final_set = cur_set %>%
-  bind_cols(predict(cluster_fit, new_data = final_set))
+  bind_cols(predict(cluster_fit, new_data = cur_set))
+# View(final_set %>% skim_without_charts())
+
 # Rerun the code below, but replace mutate for each predictor
+# new_tests   total_tests   positive_rate   total_vaccinations    people_vaccinated
+# extreme_poverty
 final_set = final_set %>%
   group_by(.pred_cluster) %>%
-  mutate(total_vaccinations = ifelse(
-    is.na(total_vaccinations),
-    median(total_vaccinations, na.rm = TRUE),
-    total_vaccinations)) %>%
+  mutate(extreme_poverty = ifelse(
+    is.na(extreme_poverty),
+    median(extreme_poverty, na.rm = TRUE),
+    extreme_poverty)) %>%
   ungroup()
+
 # This is the training set with missingness imputed between Feb 2021 to March 2022
 # Merge this dataset with the training set outside the above date range to
 # get the final training set
+temp_set = train_tree %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
+final_train = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
+# Do the same for the testing set
 
-
-
-# View(final_set %>% skim_without_charts())
 # View(train_tree %>%
 #        filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
 #        skim_without_charts())
 
-# ggplot(final_set, aes(date, total_vaccinations)) +
-#   geom_point(aes(color = location), alpha = 0.1)
+ggplot(final_set %>% filter(total_tests <= 5e14), aes(date, total_tests)) +
+  geom_point(aes(color = location), alpha = 0.1)
 
 
 
