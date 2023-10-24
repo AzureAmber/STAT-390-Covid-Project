@@ -3,10 +3,21 @@
 # https://uc-r.github.io/kmeans_clustering
 
 
+# IMPORTANT NOTES
+# On line 18, replace 10 with your amount of cores
+# On lines 31, 86, and 109, replace train_tree with your training set
+
+
 library(cluster)
 library(factoextra)
 library(tidymodels)
 library(tidyclust)
+library(doParallel)
+
+# detectCores(logical = FALSE)
+# ***** INSERT YOUR NUMBER OF CORES HERE *****
+cores.cluster = makePSOCKcluster(10)
+registerDoParallel(cores.cluster)
 
 # 1. Determine optimal number of clusters
 
@@ -19,7 +30,7 @@ library(tidyclust)
 
 train_freena = na.omit(train_tree) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
-  filter(!is.na(life_expectancy))
+  filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
 folds = vfold_cv(train_freena, v = 5, repeats = 3)
 
 # Define model
@@ -27,7 +38,7 @@ cluster_model = k_means(num_clusters = tune()) %>%
   set_engine("ClusterR")
 
 # Define Recipe and workflow
-cluster_recipe = recipe(~ life_expectancy,
+cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
                         data = train_freena) %>%
   step_normalize(all_numeric_predictors())
 cluster_wflow = workflow() %>%
@@ -37,8 +48,8 @@ cluster_wflow = workflow() %>%
 # Set up tuning grid
 cluster_params = cluster_wflow %>%
   extract_parameter_set_dials() %>%
-  update(num_clusters = num_clusters(c(2,8)))
-cluster_grid = grid_regular(cluster_params, levels = 4)
+  update(num_clusters = num_clusters(c(4,16)))
+cluster_grid = grid_regular(cluster_params, levels = 5)
 
 # Tuning/Fitting
 cluster_tuned = tune_cluster(
@@ -46,9 +57,12 @@ cluster_tuned = tune_cluster(
   resamples = folds,
   grid = cluster_grid,
   control = control_grid(save_pred = TRUE,
-                         save_workflow = TRUE),
+                         save_workflow = TRUE,
+                         parallel_over = "everything"),
   metrics = cluster_metric_set(silhouette_avg)
 )
+
+stopCluster(cores.cluster)
 
 cluster_tuned %>% collect_metrics()
 # Find the num_clusters where the mean is closest to 1
@@ -58,7 +72,7 @@ cluster_tuned %>% collect_metrics()
 
 
 # 2. Predictions using clustering
-cluster_model = k_means(num_clusters = 4) %>%
+cluster_model = k_means(num_clusters = 16) %>%
   set_engine("ClusterR")
 cluster_wflow = workflow() %>%
   add_model(cluster_model) %>%
@@ -74,7 +88,7 @@ final_set = cur_set %>%
   bind_cols(predict(cluster_fit, new_data = cur_set))
 # View(final_set %>% skim_without_charts())
 
-# Rerun the code below, but replace mutate for each predictor
+# Replace missingness for each numerical predictor by their cluster's median
 library(rlang)
 data_vars = colnames(cur_set)
 for (i in data_vars) {
