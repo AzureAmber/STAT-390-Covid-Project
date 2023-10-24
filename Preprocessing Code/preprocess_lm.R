@@ -4,7 +4,7 @@ library(lubridate)
 library(cluster)
 library(factoextra)
 
-# linear models = remove predictors
+# linear models = remove observations
 # tree based models = give large values
 # neural networks = create boolean indicator variable 
 
