@@ -6,7 +6,7 @@ library(doParallel)
 
 # detectCores(logical = FALSE)
 # ***** INSERT YOUR NUMBER OF CORES HERE *****
-cores.cluster = makePSOCKcluster(10)
+cores.cluster = makePSOCKcluster(7)
 registerDoParallel(cores.cluster)
 
 # 1. Determine optimal number of clusters
@@ -18,7 +18,7 @@ registerDoParallel(cores.cluster)
 # total_vaccinations    people_vaccinated
 # For any other imputation, don't filter date
 
-train_freena = na.omit(train_tree) %>%
+train_freena = na.omit(train_nn) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
   filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
 folds = vfold_cv(train_freena, v = 5, repeats = 3)
@@ -73,7 +73,7 @@ cluster_fit = fit(cluster_wflow, data = train_freena)
 cluster_fit %>% extract_cluster_assignment()
 # cluster_fit %>% extract_centroids()
 
-cur_set = train_tree %>% filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01")))
+cur_set = train_nn %>% filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01")))
 final_set = cur_set %>%
   bind_cols(predict(cluster_fit, new_data = cur_set))
 # View(final_set %>% skim_without_charts())
@@ -96,7 +96,7 @@ for (i in data_vars) {
 # This is the training set with missingness imputed between Feb 2021 to March 2022
 # Merge this dataset with the training set outside the above date range to
 # get the final training set
-temp_set = train_tree %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
+temp_set = train_nn %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
 final_train = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
 # Do the same for the testing set
 
