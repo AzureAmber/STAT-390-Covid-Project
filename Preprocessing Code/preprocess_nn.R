@@ -18,7 +18,6 @@ data_cur = data %>%
   mutate(G20 = location %in% g20, G24 = location %in% g24)
 
 
-
 # remove variables with large missingness OR collinearity
 results = data_cur %>% skim_without_charts()
 names_filt = results$skim_variable[results$complete_rate < 0.7]
