@@ -75,15 +75,16 @@ final_set = cur_set %>%
 # View(final_set %>% skim_without_charts())
 
 # Rerun the code below, but replace mutate for each predictor
+library(rlang)
 data_vars = colnames(cur_set)
 for (i in data_vars) {
   if (class(cur_set[[i]]) == "numeric") {
     final_set <<- final_set %>%
       group_by(.pred_cluster) %>%
-      mutate(get(i) = ifelse(
-        is.na(get(i)),
-        median(get(i), na.rm = TRUE),
-        get(i))) %>%
+      mutate((!!sym(i)) := ifelse(
+        is.na(!!sym(i)),
+        median(!!sym(i), na.rm = TRUE),
+        !!sym(i))) %>%
       ungroup()
   }
 }
