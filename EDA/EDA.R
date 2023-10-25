@@ -6,10 +6,12 @@ library(gridExtra)
 library(tseries)
 library(zoo)
 library(stats)
+library(patchwork)
 
 
 #load data
 data = read_csv('data/raw_data/owid-covid-data.csv')
+source('Midterm Report/significant_predictors.qmd')
 
 g20 = c('Argentina', 'Australia', 'Canada', 'China', 'France', 'Germany',
         'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
@@ -144,3 +146,43 @@ bivariate_plots <- do.call(grid.arrange, c(plot_list2, ncol=5))
 ggsave("EDA/predictors_vs_newcases.png", bivariate_plots, width = 20, height = 15)
 
 # look closer for total_cases, new_deaths, reproduction_rate
+
+# Multivariate Analysis 
+
+# total cases
+ggplot(data_cur, aes(x = total_cases, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+  # china specifically 
+ggplot(data_cur |> filter(location == "China"), aes(x = total_cases, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  geom_smooth() + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+# new deaths 
+ggplot(data_cur , aes(x = new_deaths, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+  # china specifically
+ggplot(data_cur |> filter(location == "China"), aes(x = new_deaths, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  geom_smooth() + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+# reproduction rate
+ggplot(data_cur, aes(x = reproduction_rate, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+# Correlation plot 
+cor_matrix <- cor(x |> select(all_of(vars_to_plot)) |> na.omit())
+corrplot::corrplot(cor_matrix, method = "color", diag = TRUE, 
+         tl.col = "black", tl.srt = 45, tl.cex = 0.7) 
+
