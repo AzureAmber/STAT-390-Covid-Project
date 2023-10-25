@@ -26,7 +26,7 @@ if (any(is.na(data_cur$new_cases))) {
   
   missing_response <- data_cur[is.na(data_cur$new_cases), c("continent", "location", "date")]
   
-  missing_response <- missing_data[order(missing_data$date), ]
+  missing_response <- missing_response[order(missing_response$date), ]
   
   print(missing_response)
 } else {

@@ -1,3 +1,17 @@
+---
+title: "Outliers Detection"
+subtitle: "October 25"
+author: "Cindy Ha, Willie Xie, Erica Zhang"
+format: pdf
+editor: visual
+execute: 
+  echo: false
+  warning: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
 # Load packages 
 library(tidyverse)
 library(skimr)
@@ -15,29 +29,15 @@ g24 = c('Argentina', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
 data_cur = data %>%
   filter(location %in% c(g20, g24)) %>%
   mutate(G20 = location %in% g20, G24 = location %in% g24)
+```
 
-#find outliers 
+# Initial Dataset Outliers
 
-## ** USING OUTLIER PACKAGE **
+Using R's **outliers** package and **IQR method**, print the result in descending order by the amount of outliers:
 
+```{r}
 numerical_vars <- sapply(data_cur, is.numeric)
 numerical_data <- data_cur[, numerical_vars]
-
-outliers_list <- list()
-
-for (var_name in names(numerical_data)) {
-  outlier_value <- outlier(numerical_data[[var_name]])
-  
-  outliers_list[[var_name]] <- outlier_value
-}
-
-for (var_name in names(outliers_list)) {
-  cat(var_name, ":", outliers_list[[var_name]], "\n")
-}
-
-
-## ** ADD IQR METHOD in addition to OUTLIER **
-
 
 # Exclude columns with 'new_cases' in their names
 numerical_data <- numerical_data[, !grepl("new_cases", names(numerical_data))]
@@ -88,9 +88,12 @@ result <- data.frame(variable = variable_names, count = outlier_counts)
 result <- result[order(-result$count), ]
 
 print(result)
+```
 
-# BOXPLOT FOR TOP 10 RESULTS
 
+The **boxplot** for top 10 predictor variables:
+
+```{r}
 # Identify top 10 variables
 top_10_vars <- head(result$variable, 10)
 
@@ -101,12 +104,51 @@ for (var_name in top_10_vars) {
     geom_boxplot() +
     labs(title = paste("Boxplot of", var_name), y = var_name)
   
-  ggsave(filename = paste0("EDA/top10_outliers/", var_name, "_boxplot.png"), plot = p, width = 6, height = 4)
+  print(p)
 }
+```
 
 
-## find outliers for only siginificant predictor variables
+# Significant Predictor Features Outliers
 
+However, after feature selection, we will not use some of the features with a large amount of outliers. Here's a quick overview of the amount of outliers significant predictor variables have:
+
+```{r}
+#| results: hide
+
+y = data_cur %>% relocate(iso_code, tests_units, .before = continent)
+head(y, n = 5)
+
+x = data_cur %>% select(-c(iso_code, tests_units))
+
+results = data_cur %>% skim_without_charts()
+names_filt = results$skim_variable[results$complete_rate < 0.7]
+
+y = x %>% select(new_cases, any_of(names_filt))
+
+cor(y, use = "pairwise.complete.obs") %>% round(digits = 3)
+
+c('total_tests', 'new_tests',
+  'positive_rate', 'total_vaccinations')
+
+names_filtn = setdiff(names_filt,
+                      c('total_tests', 'new_tests',
+                        'positive_rate', 'total_vaccinations'))
+
+x = data_cur %>% select(-c(iso_code, tests_units)) %>%
+  select(-any_of(names_filtn))
+
+names_col = c('iso_code', 'median_age', 'aged_65_older', 'aged_70_older',
+              'human_development_index', 'new_cases_smoothed', 'new_deaths_smoothed',
+              'new_deaths_smoothed_per_million', 'new_cases_smoothed_per_million')
+
+names_col
+
+x = x %>% select(-any_of(names_col))
+```
+
+
+```{r}
 numerical_vars <- sapply(x, is.numeric)
 numerical_data <- x[, numerical_vars]
 
@@ -161,4 +203,13 @@ result <- result[order(-result$count), ]
 
 print(result)
 
+```
+
+More than half of the numerical predictor variables have less than 3 outliers so there’s no need to worry about it. 
+
+Then, looking at those with 2000-ish (about 9% of observations) outliers, we can potentially just remove those observations for linear models only since tree-based models and neural network will be able to identify outliers. 
+
+However, it also makes intuitive sense that features related with cases, deaths, and tests have outliers as the COVID situation could be drastically different for a developing African country and a developed European country, for instance. 
+
+Moreover, we use dataset before imputing any missingness for outlier detection, thus there could potentially be less outliers after properly imputing the values.
 
