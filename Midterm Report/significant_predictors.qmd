@@ -1,0 +1,137 @@
+---
+title: "Significant Predictors"
+subtitle: "October 25"
+author: "Cindy Ha, Willie Xie, Erica Zhang"
+format: pdf
+editor: visual
+execute: 
+  echo: false
+  warning: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(skimr)
+library(lubridate)
+
+data = read_csv('data/raw_data/owid-covid-data.csv')
+
+g20 = c('Argentina', 'Australia', 'Canada', 'China', 'France', 'Germany',
+        'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
+        'Saudi Arabia', 'South Africa', 'Turkey', 'United Kingdom',
+        'United States')
+g24 = c('Argentina', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
+        'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa',
+        'Sri Lanka')
+data_cur = data %>%
+  filter(location %in% c(g20, g24)) %>%
+  mutate(G20 = location %in% g20, G24 = location %in% g24)
+```
+
+
+
+# Initial Dataset Information
+
+**The number of observations and variables in the initial dataset.**
+
+```{r}
+dim(data_cur)
+```
+
+
+
+# Remove nonvalue predictors
+
+**Only iso_code and tests_units hold no significant value.**
+
+```{r}
+y = data_cur %>% relocate(iso_code, tests_units, .before = continent)
+head(y, n = 5)
+
+x = data_cur %>% select(-c(iso_code, tests_units))
+```
+
+
+
+# Remove nonsignificant predictors
+
+**The predictors with large missingness.**
+
+```{r}
+results = data_cur %>% skim_without_charts()
+names_filt = results$skim_variable[results$complete_rate < 0.7]
+
+names_filt
+```
+
+**The predictors with large missingness, but are significant to predicting `new_cases` and thus, kept.**
+
+```{r}
+y = x %>% select(new_cases, any_of(names_filt))
+
+cor(y, use = "pairwise.complete.obs") %>% round(digits = 3)
+
+c('total_tests', 'new_tests',
+  'positive_rate', 'total_vaccinations')
+
+names_filtn = setdiff(names_filt,
+                      c('total_tests', 'new_tests',
+                        'positive_rate', 'total_vaccinations'))
+
+x = data_cur %>% select(-c(iso_code, tests_units)) %>%
+  select(-any_of(names_filtn))
+```
+
+
+## Number of observations with hosp_patients missingness by country
+
+```{r}
+sort(table(data_cur$location[is.na(data_cur$hosp_patients)]))
+```
+
+## Number of observations with icu_patients missingness by country
+
+```{r}
+sort(table(data_cur$location[is.na(data_cur$icu_patients)]))
+```
+
+
+
+# Remove multicollinearity predictors
+
+```{r}
+cor(x %>% select(-c(continent, location, date, G20, G24)),
+    use = "pairwise.complete.obs") %>%
+  round(digits = 3)
+```
+
+**The predictors with multicollinearity issues.**
+
+```{r}
+names_col = c('iso_code', 'median_age', 'aged_65_older', 'aged_70_older',
+              'human_development_index', 'new_cases_smoothed', 'new_deaths_smoothed',
+              'new_deaths_smoothed_per_million', 'new_cases_smoothed_per_million')
+
+names_col
+
+x = x %>% select(-any_of(names_col))
+```
+
+
+
+# Final dataset
+
+**The number of observations and variables in the final dataset.**
+
+```{r}
+dim(x)
+
+colnames(x)
+```
+
+
+
+
+
