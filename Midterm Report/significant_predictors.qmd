@@ -30,8 +30,6 @@ data_cur = data %>%
   mutate(G20 = location %in% g20, G24 = location %in% g24)
 ```
 
-
-
 # Initial Dataset Information
 
 **The number of observations and variables in the initial dataset.**
@@ -39,8 +37,6 @@ data_cur = data %>%
 ```{r}
 dim(data_cur)
 ```
-
-
 
 # Remove nonvalue predictors
 
@@ -52,8 +48,6 @@ head(y, n = 5)
 
 x = data_cur %>% select(-c(iso_code, tests_units))
 ```
-
-
 
 # Remove nonsignificant predictors
 
@@ -84,7 +78,6 @@ x = data_cur %>% select(-c(iso_code, tests_units)) %>%
   select(-any_of(names_filtn))
 ```
 
-
 ## Number of observations with hosp_patients missingness by country
 
 ```{r}
@@ -96,8 +89,6 @@ sort(table(data_cur$location[is.na(data_cur$hosp_patients)]))
 ```{r}
 sort(table(data_cur$location[is.na(data_cur$icu_patients)]))
 ```
-
-
 
 # Remove multicollinearity predictors
 
@@ -119,8 +110,6 @@ names_col
 x = x %>% select(-any_of(names_col))
 ```
 
-
-
 # Final dataset
 
 **The number of observations and variables in the final dataset.**
@@ -130,8 +119,3 @@ dim(x)
 
 colnames(x)
 ```
-
-
-
-
-
