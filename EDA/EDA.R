@@ -17,19 +17,17 @@ data_cur = data %>%
   filter(location %in% c(g20, g24)) %>%
   mutate(G20 = location %in% g20, G24 = location %in% g24)
 
+#UNIVARIATE ANALYSIS
 
-## first check the distribution of response variable
+## response variable `new_cases`
 
-# Check for missingness in 'new_cases'
+# check for missingness
 if (any(is.na(data_cur$new_cases))) {
   
-  # Extract rows where 'new_cases' is missing and select relevant columns
   missing_response <- data_cur[is.na(data_cur$new_cases), c("continent", "location", "date")]
   
-  # Sort data by 'date' in ascending order
   missing_response <- missing_data[order(missing_data$date), ]
   
-  # Print the table
   print(missing_response)
 } else {
   cat("There are no missing values in 'new_cases'.\n")
