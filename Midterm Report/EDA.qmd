@@ -17,6 +17,9 @@ library(tidyverse)
 library(skimr)
 library(tidyr)
 library(gridExtra)
+library(tseries)
+library(zoo)
+library(stats)
 
 
 #load data
@@ -30,6 +33,58 @@ g24 = c('Argentina', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
 data_cur = data %>%
   filter(location %in% c(g20, g24)) %>%
   mutate(G20 = location %in% g20, G24 = location %in% g24)
+
+data_sorted <- data_cur |> 
+  arrange(date) |> 
+  select(date, new_cases) |> 
+  na.omit()
+
+```
+
+# Temporal Visualization 
+We can look at `new_cases` from 2020 to 2023. 
+
+```{r}
+# 1. basic new_cases from 2020 to 2023
+ggplot(data_sorted, aes(x = date, y = new_cases)) + 
+  geom_line() + 
+  labs(x = "Date", y = "New Cases", title = "Daily New Covid Cases") + 
+  theme_bw()
+
+# 2. looking at each of the 4 years 
+ggplot(data_sorted, aes(x = date, y = new_cases)) +
+  geom_line() +
+  facet_wrap(~ format(date, "%Y"), scales = "free_x") +  
+  labs(x = "Date", y = "New Cases") + 
+  theme_bw()
+
+```
+
+# Stationarity 
+Next, we can check if the dataset is stationary or not. This will be done with the Augmeneted Dickey-Fuller Test. 
+
+```{r}
+
+data_ts <- ts(data_sorted |> pull(new_cases), start = c(2020-01-01, 1), frequency = 365)
+adf.test(data_ts)
+```
+
+# Correlation 
+We can also explore the autocorrelation and partial autocorrelation. 
+
+```{r}
+# Autocorrelation
+acf(data_ts, main = "ACF For New Cases")
+
+# Partial Autocorrelation
+pacf(data_ts, main = "PACF for New Cases")
+```
+
+# Seasonal Decomposition
+
+```{r}
+decomposed <- stl(data_ts, s.window = "periodic")
+plot(decomposed)
 
 ```
 
@@ -53,7 +108,8 @@ if (any(is.na(data_cur$new_cases))) {
 
 There are **161** missing response values, mainly at the beginning of the COVID outbreak before 2020/9 or more recently after 2023/5
 
-Then, looking at the distribution of the response variable: 
+Then, looking at the distribution of the response variable:
+
 ```{r}
 # histogram of the response variable
 
@@ -64,7 +120,7 @@ data_cur %>%
   theme_bw()
 ```
 
-The distribution is heavily skewed to the right. 
+The distribution is heavily skewed to the right.
 
 We thus **log-transform** `new_cases` and look at the distribution after transformation:
 
@@ -117,7 +173,6 @@ names_col
 x = x %>% select(-any_of(names_col))
 ```
 
-
 ```{r}
 vars_to_plot <- names(x)[sapply(x, is.numeric) & !sapply(x, is.factor)]
 vars_to_plot <- vars_to_plot[vars_to_plot != "new_cases"]
@@ -134,4 +189,30 @@ combined_plot <- do.call(grid.arrange, c(plot_list, ncol=5))
 
 We see that most of the predictor variables are also heavily **positively skewed**. Features such as `female_smokers`, `male_smokers`, and `life_expectancy` do have a more even distribution and its time-independence make them good features to use for clustering imputation.
 
+# Bivariate Analysis 
 
+Continuing on, we can also plot the significant predictor variables against `new_cases` and look for any unique relationships that we could further explore. 
+
+```{r}
+# plotting each numeric predictor against new_cases
+plot_list2 <- list()
+
+# loop through each variable and create a scatter plot
+for (var_name in vars_to_plot) {
+  if (var_name %in% colnames(x)) {  # Check if the variable exists in the dataset
+    plot <- ggplot(x, aes(x = .data[[var_name]], y = new_cases)) +
+      geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) +
+      labs(x = var_name, y = "new_cases") +
+      theme_bw()
+    plot_list2[[var_name]] <- plot  # Store the plot in the list
+  } else {
+    warning(paste("Variable", var_name, "not found in the dataset. Skipping."))
+  }
+}
+
+
+bivariate_plots <- do.call(grid.arrange, c(plot_list2, ncol=5))
+bivariate_plots
+```
+
+We can see that there are interesting trend sfor `total_cases`, `new_deaths`, and `reproduction_rate`. 

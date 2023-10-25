@@ -3,6 +3,9 @@ library(tidyverse)
 library(skimr)
 library(tidyr)
 library(gridExtra)
+library(tseries)
+library(zoo)
+library(stats)
 
 
 #load data
@@ -17,7 +20,48 @@ data_cur = data %>%
   filter(location %in% c(g20, g24)) %>%
   mutate(G20 = location %in% g20, G24 = location %in% g24)
 
-#UNIVARIATE ANALYSIS
+data_sorted <- data_cur |> 
+  arrange(date) |> 
+  select(date, new_cases) |> 
+  na.omit()
+
+# TEMPORAL VISUALIZATION ----
+# 1. basic new_cases from 2020 to 2023
+ggplot(data_sorted, aes(x = date, y = new_cases)) + 
+  geom_line() + 
+  labs(x = "Date", y = "New Cases", title = "Daily New Covid Cases") + 
+  theme_bw()
+
+# 2. looking at each of the 4 years 
+ggplot(data_sorted, aes(x = date, y = new_cases)) +
+  geom_line() +
+  facet_wrap(~ format(date, "%Y"), scales = "free_x") +  
+  labs(x = "Date", y = "New Cases") + 
+  theme_bw()
+
+# STATIONARITY ----
+data_ts <- ts(data_sorted |> pull(new_cases), start = c(2020-01-01, 1), frequency = 365)
+adf.test(data_ts)
+# Augmented Dickey-Fuller Test
+# 
+# data:  data_ts
+# Dickey-Fuller = -12.743, Lag order = 31, p-value = 0.01
+# alternative hypothesis: stationary
+
+
+# CORRELATION ANALYSIS ----
+# Autocorrelation
+acf(data_ts, main = "ACF For New Cases")
+
+# Partial Autocorrelation
+pacf(data_ts, main = "PACF for New Cases")
+
+# SEASONAL DECOMPOSITION ----
+# apply stl decomp
+decomposed <- stl(data_ts, s.window = "periodic")
+plot(decomposed)
+
+# UNIVARIATE ANALYSIS ----
 
 ## response variable `new_cases`
 
@@ -77,3 +121,26 @@ combined_plot <- do.call(grid.arrange, c(plot_list, ncol=5))
 ggsave("EDA/predictors_histograms.png", combined_plot, width=20, height=15)
 
 
+# BIVARIATE ANALYSIS ----
+
+# plotting each numeric predictor against new_cases
+plot_list2 <- list()
+
+# loop through each variable and create a scatter plot
+for (var_name in vars_to_plot) {
+  if (var_name %in% colnames(x)) {  # Check if the variable exists in the dataset
+    plot <- ggplot(x, aes(x = .data[[var_name]], y = new_cases)) +
+      geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) +
+      labs(x = var_name, y = "new_cases") +
+      theme_bw()
+    plot_list2[[var_name]] <- plot  # Store the plot in the list
+  } else {
+    warning(paste("Variable", var_name, "not found in the dataset. Skipping."))
+  }
+}
+
+
+bivariate_plots <- do.call(grid.arrange, c(plot_list2, ncol=5))
+ggsave("EDA/predictors_vs_newcases.png", bivariate_plots, width = 20, height = 15)
+
+# look closer for total_cases, new_deaths, reproduction_rate
