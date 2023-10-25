@@ -19,7 +19,7 @@ library(tidyr)
 library(outliers)
 
 #load data
-data = read_csv('data/raw_data/owid-covid-data.csv')
+data = read_csv('../data/raw_data/owid-covid-data.csv')
 
 g20 = c('Argentina', 'Australia', 'Canada', 'China', 'France', 'Germany',
         'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
@@ -90,7 +90,6 @@ result <- result[order(-result$count), ]
 print(result)
 ```
 
-
 The **boxplot** for top 10 predictor variables:
 
 ```{r}
@@ -107,7 +106,6 @@ for (var_name in top_10_vars) {
   print(p)
 }
 ```
-
 
 # Significant Predictor Features Outliers
 
@@ -146,7 +144,6 @@ names_col
 
 x = x %>% select(-any_of(names_col))
 ```
-
 
 ```{r}
 numerical_vars <- sapply(x, is.numeric)
@@ -205,11 +202,10 @@ print(result)
 
 ```
 
-More than half of the numerical predictor variables have less than 3 outliers so there’s no need to worry about it. 
+More than half of the numerical predictor variables have less than **3** outliers so there's no need to worry about it.
 
-Then, looking at those with 2000-ish (about 9% of observations) outliers, we can potentially just remove those observations for linear models only since tree-based models and neural network will be able to identify outliers. 
+Then, looking at those with 2000-ish (about 9% of observations) outliers, we can potentially just **remove** those observations for **linear models only** since tree-based models and neural network will be able to identify outliers.
 
-However, it also makes intuitive sense that features related with cases, deaths, and tests have outliers as the COVID situation could be drastically different for a developing African country and a developed European country, for instance. 
+However, it also makes intuitive sense that features related with cases, deaths, and tests have outliers as the COVID situation could be drastically different for a developing African country and a developed European country, for instance.
 
 Moreover, we use dataset before imputing any missingness for outlier detection, thus there could potentially be less outliers after properly imputing the values.
-
