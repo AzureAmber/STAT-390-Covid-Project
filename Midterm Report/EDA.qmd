@@ -215,4 +215,56 @@ bivariate_plots <- do.call(grid.arrange, c(plot_list2, ncol=5))
 bivariate_plots
 ```
 
-We can see that there are interesting trend sfor `total_cases`, `new_deaths`, and `reproduction_rate`. 
+We can see that there are interesting trends for `total_cases`, `new_deaths`, and `reproduction_rate`. 
+
+# Multivariate Analysis
+
+Here are more plots for those three predictors, but this time accounting for location. We can also notice that many countries stop reporting after a certain time and that China's graph also shows a clear pattern for `total_cases` and `new_deaths`. 
+
+```{r}
+
+# total cases
+ggplot(data_cur, aes(x = total_cases, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+  # china specifically 
+ggplot(data_cur |> filter(location == "China"), aes(x = total_cases, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  geom_smooth() + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+# new deaths 
+ggplot(data_cur , aes(x = new_deaths, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+  # china specifically
+ggplot(data_cur |> filter(location == "China"), aes(x = new_deaths, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  geom_smooth() + 
+  facet_wrap(~ location) + 
+  theme_bw()
+
+# reproduction rate
+ggplot(data_cur, aes(x = reproduction_rate, y = new_cases)) + 
+  geom_point(color = "skyblue", alpha = 0.7, na.rm = TRUE) + 
+  facet_wrap(~ location) + 
+  theme_bw()
+```
+
+Lastly, this is the correlation plot. 
+```{r}
+# Correlation plot 
+cor_matrix <- cor(x |> select(all_of(vars_to_plot)) |> na.omit())
+corrplot::corrplot(cor_matrix, method = "color", diag = TRUE, 
+         tl.col = "black", tl.srt = 45, tl.cex = 0.7) 
+```
+
+An initial glance shows that there are strong correlations between: 
+
+- `total_cases` & `total_tests`
+- `gdp_per_capita` & `life_expectancy`
