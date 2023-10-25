@@ -62,17 +62,18 @@ data_cur %>%
 
 # check the distribution of significant **predictor variables**
 
-vars_to_plot <- names(train_lm)[sapply(train_lm, is.numeric) & !sapply(train_lm, is.factor)]
+vars_to_plot <- names(x)[sapply(x, is.numeric) & !sapply(x, is.factor)]
+vars_to_plot <- vars_to_plot[vars_to_plot != "new_cases"]
 
 plot_list <- lapply(vars_to_plot, function(var_name) {
-  ggplot(train_lm, aes_string(x=var_name)) + 
+  ggplot(x, aes_string(x=var_name)) + 
     geom_histogram(fill="skyblue", color="black", alpha=0.7, na.rm = TRUE) +
-    labs(x=var_name, y="Frequency")+
+    labs(x=var_name, y="Count")+
     theme_bw()
 })
 
 combined_plot <- do.call(grid.arrange, c(plot_list, ncol=5))
 
-ggsave("EDA/predictors_histograms.pdf", combined_plot, width=20, height=15)
+ggsave("EDA/predictors_histograms.png", combined_plot, width=20, height=15)
 
 
