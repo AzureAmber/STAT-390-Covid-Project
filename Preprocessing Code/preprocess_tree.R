@@ -23,8 +23,8 @@ data_cur = data %>%
 results = data_cur %>% skim_without_charts()
 names_filt = results$skim_variable[results$complete_rate < 0.7]
 names_filtn = setdiff(names_filt,
-                      c('total_tests', 'new_tests', 'positive_rate',
-                        'total_vaccinations', 'people_vaccinated'))
+                      c('total_tests', 'new_tests',
+                        'positive_rate', 'total_vaccinations'))
 names_col = c('iso_code', 'median_age', 'aged_65_older', 'aged_70_older',
               'human_development_index', 'new_cases_smoothed', 'new_deaths_smoothed',
               'new_deaths_smoothed_per_million', 'new_cases_smoothed_per_million')
