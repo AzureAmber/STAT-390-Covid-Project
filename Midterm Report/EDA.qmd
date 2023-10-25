@@ -1,0 +1,137 @@
+---
+title: "Exploratory Data Analysis (EDA)"
+subtitle: "October 25"
+author: "Cindy Ha, Willie Xie, Erica Zhang"
+format: docx
+editor: visual
+execute: 
+  echo: false
+  warning: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+# Load packages 
+library(tidyverse)
+library(skimr)
+library(tidyr)
+library(gridExtra)
+
+
+#load data
+data = read_csv('../data/raw_data/owid-covid-data.csv')
+
+g20 = c('Argentina', 'Australia', 'Canada', 'China', 'France', 'Germany',
+        'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
+        'Saudi Arabia', 'South Africa', 'Turkey', 'United Kingdom', 'United States')
+g24 = c('Argentina', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
+        'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
+data_cur = data %>%
+  filter(location %in% c(g20, g24)) %>%
+  mutate(G20 = location %in% g20, G24 = location %in% g24)
+
+```
+
+# Univariate Analysis
+
+We start with response variable `new_cases` and check for missingness:
+
+```{r}
+# check for missingness
+if (any(is.na(data_cur$new_cases))) {
+  
+  missing_response <- data_cur[is.na(data_cur$new_cases), c("continent", "location", "date")]
+  
+  missing_response <- missing_response[order(missing_response$date), ]
+  
+  print(missing_response)
+} else {
+  cat("There are no missing values in 'new_cases'.\n")
+}
+```
+
+There are **161** missing response values, mainly at the beginning of the COVID outbreak before 2020/9 or more recently after 2023/5
+
+Then, looking at the distribution of the response variable: 
+```{r}
+# histogram of the response variable
+
+data_cur %>% 
+  ggplot(aes(x=new_cases)) + 
+  geom_histogram(fill="skyblue", color="black", alpha=0.7) +
+  labs(title="Histogram of New Cases", x="New Cases", y="Count")+
+  theme_bw()
+```
+
+The distribution is heavily skewed to the right. 
+
+We thus **log-transform** `new_cases` and look at the distribution after transformation:
+
+```{r}
+# histogram for new_cases with log-transformed x-axis
+data_cur %>% 
+  ggplot(aes(x=new_cases)) + 
+  geom_histogram(fill="skyblue", color="black", alpha=0.7, na.rm = TRUE) +
+  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(title="Histogram of New Cases (Log Scale)", x="New Cases (Log Scale)", y="Count")+
+  theme_bw()
+```
+
+It looks much more normally distributed now. When it comes to model training, we should probably consider log transforming the response variable first and then de-log when making predictions.
+
+Also, a quick overview of the distribution of significant predictor variables:
+
+```{r}
+#| results: hide
+
+y = data_cur %>% relocate(iso_code, tests_units, .before = continent)
+head(y, n = 5)
+
+x = data_cur %>% select(-c(iso_code, tests_units))
+
+results = data_cur %>% skim_without_charts()
+names_filt = results$skim_variable[results$complete_rate < 0.7]
+
+y = x %>% select(new_cases, any_of(names_filt))
+
+cor(y, use = "pairwise.complete.obs") %>% round(digits = 3)
+
+c('total_tests', 'new_tests',
+  'positive_rate', 'total_vaccinations')
+
+names_filtn = setdiff(names_filt,
+                      c('total_tests', 'new_tests',
+                        'positive_rate', 'total_vaccinations'))
+
+x = data_cur %>% select(-c(iso_code, tests_units)) %>%
+  select(-any_of(names_filtn))
+
+names_col = c('iso_code', 'median_age', 'aged_65_older', 'aged_70_older',
+              'human_development_index', 'new_cases_smoothed', 'new_deaths_smoothed',
+              'new_deaths_smoothed_per_million', 'new_cases_smoothed_per_million')
+
+names_col
+
+x = x %>% select(-any_of(names_col))
+```
+
+
+```{r}
+vars_to_plot <- names(x)[sapply(x, is.numeric) & !sapply(x, is.factor)]
+vars_to_plot <- vars_to_plot[vars_to_plot != "new_cases"]
+
+plot_list <- lapply(vars_to_plot, function(var_name) {
+  ggplot(x, aes_string(x=var_name)) + 
+    geom_histogram(fill="skyblue", color="black", alpha=0.7, na.rm = TRUE) +
+    labs(x=var_name, y="Count")+
+    theme_bw()
+})
+
+combined_plot <- do.call(grid.arrange, c(plot_list, ncol=5))
+```
+
+We see that most of the predictor variables are also heavily **positively skewed**. Features such as `female_smokers`, `male_smokers`, and `life_expectancy` do have a more even distribution and its time-independence make them good features to use for clustering imputation.
+
+
