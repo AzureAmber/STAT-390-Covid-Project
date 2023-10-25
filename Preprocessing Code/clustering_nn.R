@@ -58,10 +58,6 @@ cluster_tuned %>% collect_metrics()
 # Find the num_clusters where the mean is closest to 1
 
 
-
-
-
-
 # 2. Predictions using clustering
 cluster_model = k_means(num_clusters = 16) %>%
   set_engine("ClusterR")
