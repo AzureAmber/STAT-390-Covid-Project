@@ -11,7 +11,6 @@ library(patchwork)
 
 #load data
 data = read_csv('data/raw_data/owid-covid-data.csv')
-source('Midterm Report/significant_predictors.qmd')
 
 g20 = c('Argentina', 'Australia', 'Canada', 'China', 'France', 'Germany',
         'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
@@ -42,7 +41,7 @@ ggplot(data_sorted, aes(x = date, y = new_cases)) +
   theme_bw()
 
 # STATIONARITY ----
-data_ts <- ts(data_sorted |> pull(new_cases), start = c(2020-01-01, 1), frequency = 365)
+data_ts <- ts(data_sorted$new_cases, start = c(2020, 1), frequency = 365)
 adf.test(data_ts)
 # Augmented Dickey-Fuller Test
 # 
@@ -53,10 +52,11 @@ adf.test(data_ts)
 
 # CORRELATION ANALYSIS ----
 # Autocorrelation
-acf(data_ts, main = "ACF For New Cases")
+acf(data_ts, lag.max = 365, main = "ACF For New Cases", ylim = c(-1, 1))
+
 
 # Partial Autocorrelation
-pacf(data_ts, main = "PACF for New Cases")
+pacf(data_ts, main = "PACF for New Cases", ylim = c(-1, 1))
 
 # SEASONAL DECOMPOSITION ----
 # apply stl decomp
