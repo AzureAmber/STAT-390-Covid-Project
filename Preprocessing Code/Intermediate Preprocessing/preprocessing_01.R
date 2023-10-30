@@ -119,6 +119,14 @@ data_clean6 <- data_clean5 %>%
 # Review the cleaned data
 View(data_clean6 %>% skim_without_charts())
 
+# FEATURE ENGINEERING ----
+# Add new variables
+data_clean7 <- data_clean6 |>
+  mutate(month = as.factor(month(date)), 
+         day_of_week = weekdays(date)) |> 
+  select(date, month, day_of_week)
+# need to add holidays ?
+
 ###########################################################################################
 # Calculating Running Average Missingness for `excess_mortality` by Country 
 x <- data_clean6 %>%
