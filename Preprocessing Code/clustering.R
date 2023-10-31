@@ -94,6 +94,10 @@ final_set = cur_set %>%
   bind_cols(predict(cluster_fit, new_data = cur_set))
 # View(final_set %>% skim_without_charts())
 
+final_set %>%
+  group_by(.pred_cluster) %>%
+  summarise(v = paste(unique(location), collapse = ", "))
+
 # Replace missingness for each numerical predictor by their cluster's median
 library(rlang)
 data_vars = colnames(cur_set)

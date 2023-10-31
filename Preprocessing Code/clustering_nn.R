@@ -19,7 +19,7 @@ registerDoParallel(cores.cluster)
 
 train_freena = na.omit(train_nn) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
-  filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
+  filter(!is.na(life_expectancy))
 folds = vfold_cv(train_freena, v = 5, repeats = 3)
 
 # Define model
@@ -27,7 +27,7 @@ cluster_model = k_means(num_clusters = tune()) %>%
   set_engine("ClusterR")
 
 # Define Recipe and workflow
-cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
+cluster_recipe = recipe(~ life_expectancy,
                         data = train_freena) %>%
   step_normalize(all_numeric_predictors())
 cluster_wflow = workflow() %>%
@@ -60,11 +60,11 @@ cluster_tuned %>% collect_metrics()
 # 2. Predictions using clustering
 train_freena = na.omit(train_nn) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
-  filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
+  filter(!is.na(life_expectancy))
 
-cluster_model = k_means(num_clusters = 10) %>%
+cluster_model = k_means(num_clusters = 16) %>%
   set_engine("ClusterR")
-cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
+cluster_recipe = recipe(~ life_expectancy,
                         data = train_freena) %>%
   step_normalize(all_numeric_predictors())
 cluster_wflow = workflow() %>%
@@ -81,6 +81,14 @@ final_train = cur_set %>%
   bind_cols(predict(cluster_fit, new_data = cur_set))
 # View(final_train %>% skim_without_charts())
 
+data_avg = final_train %>%
+  group_by(.pred_cluster) %>%
+  summarise(across(where(is.numeric), median))
+
+final_train %>%
+  group_by(.pred_cluster) %>%
+  summarise(v = paste(unique(location), collapse = ", "))
+
 # Replace missingness for each numerical predictor by their cluster's median
 library(rlang)
 data_vars = colnames(cur_set)
@@ -96,7 +104,6 @@ for (i in data_vars) {
   }
 }
 # View(final_train %>% skim_without_charts())
-
 
 # Do the same for the testing set
 cur_set = test_nn
