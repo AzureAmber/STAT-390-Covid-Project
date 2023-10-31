@@ -4,7 +4,7 @@
 
 
 # IMPORTANT NOTES
-# On line 18, replace 10 with your amount of cores
+# On line 19, replace 10 with your amount of cores
 # On lines 31, 86, and 109, replace train_tree with your training set
 
 
@@ -24,8 +24,7 @@ registerDoParallel(cores.cluster)
 # training dataset / resamples
 
 # Filter date For imputation for:
-# total_tests           new_tests   positive_rate
-# total_vaccinations    people_vaccinated
+# total_tests           new_tests   positive_rate   total_vaccinations
 # For any other imputation, don't filter date
 
 train_freena = na.omit(train_tree) %>%
@@ -72,8 +71,15 @@ cluster_tuned %>% collect_metrics()
 
 
 # 2. Predictions using clustering
-cluster_model = k_means(num_clusters = 16) %>%
+train_freena = na.omit(train_tree) %>%
+  filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
+  filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
+
+cluster_model = k_means(num_clusters = 10) %>%
   set_engine("ClusterR")
+cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
+                        data = train_freena) %>%
+  step_normalize(all_numeric_predictors())
 cluster_wflow = workflow() %>%
   add_model(cluster_model) %>%
   add_recipe(cluster_recipe)
@@ -107,18 +113,19 @@ for (i in data_vars) {
 # Merge this dataset with the training set outside the above date range to
 # get the final training set
 temp_set = train_tree %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
+v = 1e15
+temp_set = replace(temp_set, is.na(temp_set), v)
 final_train = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
+# View(final_train %>% skim_without_charts())
+
+
+
 # Do the same for the testing set
+final_test = replace(test_tree, is.na(test_tree), v)
+# View(final_test %>% skim_without_charts())
 
-# View(train_tree %>%
-#        filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
-#        skim_without_charts())
-
-# ggplot(final_set %>% filter(total_tests <= 5e14), aes(date, total_tests)) +
-#   geom_point(aes(color = location), alpha = 0.1)
-
-
-
+# write_rds(final_train, "data/finalized_data/final_train_tree.rds")
+# write_rds(final_test, "data/finalized_data/final_test_tree.rds")
 
 
 
