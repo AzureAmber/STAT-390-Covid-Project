@@ -9,6 +9,7 @@ library(cluster)
 library(factoextra)
 library(tidymodels)
 library(tidyclust)
+library(doParallel)
 theme_set(theme_minimal())
 
 # Load Data ----
@@ -54,6 +55,11 @@ ggplot(train_lm, aes(x = stringency_index)) +
 # Clustering Process ----
 # 1. Determine optimal number of clusters
 
+# detectCores(logical = FALSE)
+# ***** INSERT YOUR NUMBER OF CORES HERE *****
+cores.cluster = makePSOCKcluster(10)
+registerDoParallel(cores.cluster)
+
 # training dataset / resamples
 
 # Filter date For imputation for:
@@ -63,7 +69,7 @@ ggplot(train_lm, aes(x = stringency_index)) +
 
 train_freena = na.omit(train_lm) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
-  filter(!is.na(life_expectancy))
+  filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
 folds = vfold_cv(train_freena, v = 5, repeats = 3)
 
 # Define model
@@ -83,18 +89,19 @@ cluster_wflow = workflow() %>%
 # Set up tuning grid
 cluster_params = cluster_wflow %>%
   extract_parameter_set_dials() %>%
-  update(num_clusters = num_clusters(c(2,8)))
-cluster_grid = grid_regular(cluster_params, levels = 4)
+  update(num_clusters = num_clusters(c(4,16)))
+cluster_grid = grid_regular(cluster_params, levels = 5)
 
 # Tuning/Fitting
 cluster_tuned = tune_cluster(
   cluster_wflow,
   resamples = folds,
   grid = cluster_grid,
-  control = control_grid(save_pred = TRUE,
-                         save_workflow = TRUE),
+  control = control_grid(parallel_over = "everything"),
   metrics = cluster_metric_set(silhouette_avg)
 )
+
+stopCluster(cores.cluster)
 
 cluster_tuned %>% collect_metrics()
 # Find the num_clusters where the mean is closest to 1 --> 8 Clusters
@@ -106,7 +113,7 @@ cluster_tuned %>% collect_metrics()
 #            8 silhouette_avg standard   0.632    15 0.00870 Preprocessor1_Model4
 
 # 2. Predictions using clustering
-cluster_model = k_means(num_clusters = 8) %>%
+cluster_model = k_means(num_clusters = 10) %>%
   set_engine("ClusterR")
 cluster_wflow = workflow() %>%
   add_model(cluster_model) %>%
@@ -117,38 +124,66 @@ cluster_fit = fit(cluster_wflow, data = train_freena)
 cluster_fit %>% extract_cluster_assignment()
 # cluster_fit %>% extract_centroids()
 
-cur_set = train_lm %>% filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01")))
-final_set = cur_set %>%
+cur_set = train_lm
+final_train = cur_set %>%
   bind_cols(predict(cluster_fit, new_data = cur_set))
-# View(final_set %>% skim_without_charts())
+# View(final_train %>% skim_without_charts())
 
-# Rerun the code below, but replace mutate for each predictor
-# new_tests   total_tests   positive_rate   total_vaccinations    people_vaccinated
-# extreme_poverty
-
-# NOTE: only extreme_poverty in final_set above
-final_set = final_set %>%
+data_avg = final_train %>%
   group_by(.pred_cluster) %>%
-  mutate(extreme_poverty = ifelse(
-    is.na(extreme_poverty),
-    median(extreme_poverty, na.rm = TRUE),
-    extreme_poverty)) %>%
-  ungroup()
+  summarise(across(where(is.numeric), ~ median(.x, na.rm = TRUE)))
 
-# This is the training set with missingness imputed between Feb 2021 to March 2022
-# Merge this dataset with the training set outside the above date range to
-# get the final training set
-temp_set = train_lm  %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
-final_train = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
+final_train %>%
+  group_by(.pred_cluster) %>%
+  summarise(v = paste(unique(location), collapse = ", "))
+
+# Replace missingness for each numerical predictor by their cluster's median
+library(rlang)
+data_vars = colnames(cur_set)
+for (i in data_vars) {
+  if (class(cur_set[[i]]) == "numeric") {
+    final_train <<- final_train %>%
+      group_by(.pred_cluster) %>%
+      mutate((!!sym(i)) := ifelse(
+        is.na(!!sym(i)),
+        median(!!sym(i), na.rm = TRUE),
+        !!sym(i))) %>%
+      ungroup()
+  }
+}
+# View(final_train %>% skim_without_charts())
 
 # Do the same for the testing set
-temp_set = test_lm  %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
-final_test = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
+cur_set = test_lm
+final_test = cur_set %>%
+  bind_cols(predict(cluster_fit, new_data = cur_set))
+# View(final_test %>% skim_without_charts())
 
-# Should we save?
+# Replace missingness for each numerical predictor by their cluster's median
+for (i in data_vars) {
+  if (class(cur_set[[i]]) == "numeric") {
+    final_test <<- final_test %>%
+      group_by(.pred_cluster) %>%
+      mutate((!!sym(i)) := ifelse(
+        is.na(!!sym(i)),
+        median(!!sym(i), na.rm = TRUE),
+        !!sym(i))) %>%
+      ungroup()
+  }
+}
+# View(final_test %>% skim_without_charts())
 
-ggplot(final_set, aes(date, extreme_poverty)) +
-  geom_point(aes(color = location), alpha = 0.1)
+# Replace the remaining missingness with median values by clustering from training set.
+# for (i in seq(1, nrow(final_test))) {
+#   if (is.na(final_test$stringency_index[i])) {
+#     final_test$stringency_index[i] =
+#       (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$stringency_index
+#   }
+# }
+# View(final_test %>% skim_without_charts())
+
+# write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
+# write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_lm.rds")
 
 
 

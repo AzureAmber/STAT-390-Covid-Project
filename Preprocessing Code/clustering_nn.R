@@ -19,7 +19,7 @@ registerDoParallel(cores.cluster)
 
 train_freena = na.omit(train_nn) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
-  filter(!is.na(life_expectancy))
+  filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
 folds = vfold_cv(train_freena, v = 5, repeats = 3)
 
 # Define model
@@ -62,7 +62,7 @@ train_freena = na.omit(train_nn) %>%
   filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
   filter(!is.na(life_expectancy))
 
-cluster_model = k_means(num_clusters = 16) %>%
+cluster_model = k_means(num_clusters = 10) %>%
   set_engine("ClusterR")
 cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
                         data = train_freena) %>%
@@ -125,6 +125,7 @@ for (i in data_vars) {
 }
 # View(final_test %>% skim_without_charts())
 
+# Replace the remaining missingness with median values by clustering from training set.
 for (i in seq(1, nrow(final_test))) {
   if (is.na(final_test$stringency_index[i])) {
     final_test$stringency_index[i] =
@@ -133,8 +134,8 @@ for (i in seq(1, nrow(final_test))) {
 }
 # View(final_test %>% skim_without_charts())
 
-# write_rds(final_train, "data/finalized_data/final_train_nn.rds")
-# write_rds(final_test, "data/finalized_data/final_test_nn.rds")
+# write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_nn.rds")
+# write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_nn.rds")
 
 
 

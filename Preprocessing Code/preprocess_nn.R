@@ -34,15 +34,15 @@ data_nn = data_cur %>% select(-any_of(c(names_filtn, names_col)))
 
 # Imputation for large column missingness: Neural Network = create boolean indicators
 # TRUE if the entry has value and False if the entry is missing
-data_nn2 = data_nn %>%
-  mutate(
-    total_tests_b = ifelse(is.na(total_tests), FALSE, TRUE),
-    new_tests_b = ifelse(is.na(new_tests), FALSE, TRUE),
-    positive_rate_b = ifelse(is.na(positive_rate), FALSE, TRUE),
-    total_vaccinations_b = ifelse(is.na(total_vaccinations), FALSE, TRUE),
-    extreme_poverty_b = ifelse(is.na(extreme_poverty), FALSE, TRUE),
-    stringency_index_b = ifelse(is.na(stringency_index), FALSE, TRUE)
-  )
+# data_nn2 = data_nn %>%
+#   mutate(
+#     total_tests_b = ifelse(is.na(total_tests), FALSE, TRUE),
+#     new_tests_b = ifelse(is.na(new_tests), FALSE, TRUE),
+#     positive_rate_b = ifelse(is.na(positive_rate), FALSE, TRUE),
+#     total_vaccinations_b = ifelse(is.na(total_vaccinations), FALSE, TRUE),
+#     extreme_poverty_b = ifelse(is.na(extreme_poverty), FALSE, TRUE),
+#     stringency_index_b = ifelse(is.na(stringency_index), FALSE, TRUE)
+#   )
 # SPLIT INTO TRAINING AND TESTING SET HERE FOR THE ABOVE DATAS
 
 train_nn  <- data_nn2 |> arrange(date) %>% filter(date < as.Date("2023-01-01"))
