@@ -27,7 +27,7 @@ cluster_model = k_means(num_clusters = tune()) %>%
   set_engine("ClusterR")
 
 # Define Recipe and workflow
-cluster_recipe = recipe(~ life_expectancy,
+cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
                         data = train_freena) %>%
   step_normalize(all_numeric_predictors())
 cluster_wflow = workflow() %>%
@@ -64,7 +64,7 @@ train_freena = na.omit(train_nn) %>%
 
 cluster_model = k_means(num_clusters = 16) %>%
   set_engine("ClusterR")
-cluster_recipe = recipe(~ life_expectancy,
+cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
                         data = train_freena) %>%
   step_normalize(all_numeric_predictors())
 cluster_wflow = workflow() %>%
@@ -83,7 +83,7 @@ final_train = cur_set %>%
 
 data_avg = final_train %>%
   group_by(.pred_cluster) %>%
-  summarise(across(where(is.numeric), median))
+  summarise(across(where(is.numeric), ~ median(.x, na.rm = TRUE)))
 
 final_train %>%
   group_by(.pred_cluster) %>%
@@ -125,6 +125,13 @@ for (i in data_vars) {
 }
 # View(final_test %>% skim_without_charts())
 
+for (i in seq(1, nrow(final_test))) {
+  if (is.na(final_test$stringency_index[i])) {
+    final_test$stringency_index[i] =
+      (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$stringency_index
+  }
+}
+# View(final_test %>% skim_without_charts())
 
 # write_rds(final_train, "data/finalized_data/final_train_nn.rds")
 # write_rds(final_test, "data/finalized_data/final_test_nn.rds")
