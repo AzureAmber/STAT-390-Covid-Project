@@ -17,7 +17,9 @@ g24 = c('Argentina', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
 data_cur = data %>%
   filter(location %in% c(g20, g24)) %>%
-  mutate(G20 = location %in% g20, G24 = location %in% g24)
+  mutate(G20 = location %in% g20, G24 = location %in% g24,
+         month = as.factor(month(date)), 
+                day_of_week = weekdays(date)) 
 
 
 
@@ -34,8 +36,8 @@ data_lm = data_cur %>% select(-any_of(c(names_filt, names_col)))
 train_lm  <- data_lm |> arrange(date) %>% filter(date < as.Date("2023-01-01"))
 test_lm <- data_lm |> arrange(date) %>% filter(date >= as.Date("2023-01-01"))
 
-# write_rds(train_lm, 'data/processed_data/train_lm.rds')
-# write_rds(test_lm, 'data/processed_data/test_lm.rds')
+write_rds(train_lm, 'data/processed_data/train_lm.rds')
+write_rds(test_lm, 'data/processed_data/test_lm.rds')
 
 
 

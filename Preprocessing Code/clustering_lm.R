@@ -5,12 +5,17 @@
 # https://uc-r.github.io/kmeans_clustering
 
 # Load packages  ----
+library(tidyverse)
 library(cluster)
 library(factoextra)
 library(tidymodels)
 library(tidyclust)
+library(doMC)
+library(parallel)
 library(doParallel)
 theme_set(theme_minimal())
+tidymodels_prefer()
+
 
 # Load Data ----
 train_lm <- read_rds("data/processed_data/train_lm.rds")
@@ -57,8 +62,13 @@ ggplot(train_lm, aes(x = stringency_index)) +
 
 # detectCores(logical = FALSE)
 # ***** INSERT YOUR NUMBER OF CORES HERE *****
-cores.cluster = makePSOCKcluster(10)
-registerDoParallel(cores.cluster)
+# cores.cluster = makePSOCKcluster(10)
+# registerDoParallel(cores.cluster)
+
+# set up parallel processing foR mac
+detectCores()
+cl <- makePSOCKcluster(4)
+registerDoParallel(cl)
 
 # training dataset / resamples
 
@@ -101,19 +111,21 @@ cluster_tuned = tune_cluster(
   metrics = cluster_metric_set(silhouette_avg)
 )
 
-stopCluster(cores.cluster)
+# stopCluster(cores.cluster)
+stopCluster(cl)
 
 cluster_tuned %>% collect_metrics()
 # Find the num_clusters where the mean is closest to 1 --> 8 Clusters
 
 # num_clusters .metric        .estimator  mean     n std_err .config             
-#            2 silhouette_avg standard   0.364    15 0.00872 Preprocessor1_Model1
-#            4 silhouette_avg standard   0.458    15 0.0114  Preprocessor1_Model2
-#            6 silhouette_avg standard   0.548    15 0.00911 Preprocessor1_Model3
-#            8 silhouette_avg standard   0.632    15 0.00870 Preprocessor1_Model4
+#            4 silhouette_avg standard   0.479    15 0.00548 Preprocessor1_Model1
+#            7 silhouette_avg standard   0.591    15 0.00991 Preprocessor1_Model2
+#           10 silhouette_avg standard   0.719    15 0.00782 Preprocessor1_Model3
+#           13 silhouette_avg standard   0.829    15 0.00446 Preprocessor1_Model4
+#           16 silhouette_avg standard   0.934    15 0.00537 Preprocessor1_Model5
 
 # 2. Predictions using clustering
-cluster_model = k_means(num_clusters = 10) %>%
+cluster_model = k_means(num_clusters = 16) %>%
   set_engine("ClusterR")
 cluster_wflow = workflow() %>%
   add_model(cluster_model) %>%
@@ -182,8 +194,8 @@ for (i in data_vars) {
 # }
 # View(final_test %>% skim_without_charts())
 
-# write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
-# write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_lm.rds")
+write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
+write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_lm.rds")
 
 
 
