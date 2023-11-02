@@ -30,12 +30,12 @@ data_folds
 # 3. Define model, recipe, and workflow
 btree_model = boost_tree(
     trees = 1000, tree_depth = tune(),
-    learn_rate = tune(), min_n = tune(), mtry = tune(),
-    loss_reduction = tune(), sample_size = tune()) %>%
+    learn_rate = tune(), min_n = tune(), mtry = tune()) %>%
   set_engine('xgboost') %>%
   set_mode('regression')
 
 btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
+  step_rm(date) %>%
   step_dummy(all_nominal_predictors())
 
 btree_wflow = workflow() %>%
@@ -43,21 +43,24 @@ btree_wflow = workflow() %>%
   add_recipe(btree_recipe)
 
 # 4. Setup tuning grid
+btree_params = btree_wflow %>%
+  extract_parameter_set_dials() %>%
+  update(mtry = mtry(c(1,20)))
+btree_grid = grid_regular(btree_params, levels = 3)
 
+# 5. Model Tuning
+btree_tuned = tune_grid(
+  btree_wflow,
+  resamples = data_folds,
+  control = control_grid(save_pred = TRUE,
+                         save_workflow = TRUE,
+                         parallel_over = "everything"),
+  metrics = metric_set(rmse, rsq)
+)
 
+stopCluster(cores.cluster)
 
-
-
-
-
-
-
-
-
-
-
-
-
+btree_tuned %>% collect_metrics()
 
 
 

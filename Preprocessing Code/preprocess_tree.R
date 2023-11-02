@@ -15,7 +15,10 @@ g24 = c('Argentina', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
 data_cur = data %>%
   filter(location %in% c(g20, g24)) %>%
-  mutate(G20 = location %in% g20, G24 = location %in% g24)
+  mutate(G20 = location %in% g20,
+         G24 = location %in% g24,
+         month = as.factor(month(date)), 
+         day_of_week = weekdays(date))
 
 
 

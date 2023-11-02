@@ -127,9 +127,9 @@ for (i in data_vars) {
 
 # Replace the remaining missingness with median values by clustering from training set.
 for (i in seq(1, nrow(final_test))) {
-  if (is.na(final_test$stringency_index[i])) {
-    final_test$stringency_index[i] =
-      (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$stringency_index
+  if (is.na(final_test$total_vaccinations[i])) {
+    final_test$total_vaccinations[i] =
+      (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$total_vaccinations
   }
 }
 # View(final_test %>% skim_without_charts())

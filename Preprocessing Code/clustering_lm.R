@@ -194,8 +194,8 @@ for (i in data_vars) {
 # }
 # View(final_test %>% skim_without_charts())
 
-write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
-write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_lm.rds")
+# write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
+# write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_lm.rds")
 
 
 
