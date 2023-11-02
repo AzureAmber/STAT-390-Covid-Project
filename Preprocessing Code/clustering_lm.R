@@ -125,7 +125,7 @@ cluster_tuned %>% collect_metrics()
 #           16 silhouette_avg standard   0.934    15 0.00537 Preprocessor1_Model5
 
 # 2. Predictions using clustering
-cluster_model = k_means(num_clusters = 16) %>%
+cluster_model = k_means(num_clusters = 10) %>% # using 10 clusters to stay consistent from before
   set_engine("ClusterR")
 cluster_wflow = workflow() %>%
   add_model(cluster_model) %>%
