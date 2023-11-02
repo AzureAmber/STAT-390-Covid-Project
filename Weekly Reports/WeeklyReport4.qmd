@@ -1,0 +1,30 @@
+---
+title: "STAT 390 Weekly Report 4"
+subtitle: "Oct 30- Nov 2"
+author: "Group 2: Cindy Ha, Willie Xie, Erica Zhang"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+execute: 
+  warning: false
+  echo: false
+---
+
+## Progress/Accomplishments
+
+-   Added 2 new variables: `month` and `day_of_week`
+-   Made training and testing sets for each model (located in `data/finalized_data` folder
+    -   Clustered with `life_expectancy`, `female_smokers`, `male_smokers` to impute missingness by cluster median
+-   Looked at outliers again using Cook's distance \> 0.5
+
+## Challenges
+
+-   There was still missingness in the testing sets because some data was completely missing (no median could be computed) so we had to impute by training median
+
+## Next Steps
+
+-   Each member will run the 6 models by Nov 10 to provide starting model performance
