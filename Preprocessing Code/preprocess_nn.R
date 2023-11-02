@@ -15,7 +15,10 @@ g24 = c('Argentina', 'China', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
 data_cur = data %>%
   filter(location %in% c(g20, g24)) %>%
-  mutate(G20 = location %in% g20, G24 = location %in% g24)
+  mutate(G20 = location %in% g20,
+         G24 = location %in% g24,
+         month = as.factor(month(date)), 
+         day_of_week = weekdays(date))
 
 
 # remove variables with large missingness OR collinearity
@@ -34,15 +37,15 @@ data_nn = data_cur %>% select(-any_of(c(names_filtn, names_col)))
 
 # Imputation for large column missingness: Neural Network = create boolean indicators
 # TRUE if the entry has value and False if the entry is missing
-# data_nn2 = data_nn %>%
-#   mutate(
-#     total_tests_b = ifelse(is.na(total_tests), FALSE, TRUE),
-#     new_tests_b = ifelse(is.na(new_tests), FALSE, TRUE),
-#     positive_rate_b = ifelse(is.na(positive_rate), FALSE, TRUE),
-#     total_vaccinations_b = ifelse(is.na(total_vaccinations), FALSE, TRUE),
-#     extreme_poverty_b = ifelse(is.na(extreme_poverty), FALSE, TRUE),
-#     stringency_index_b = ifelse(is.na(stringency_index), FALSE, TRUE)
-#   )
+data_nn2 = data_nn %>%
+  mutate(
+    total_tests_b = ifelse(is.na(total_tests), FALSE, TRUE),
+    new_tests_b = ifelse(is.na(new_tests), FALSE, TRUE),
+    positive_rate_b = ifelse(is.na(positive_rate), FALSE, TRUE),
+    total_vaccinations_b = ifelse(is.na(total_vaccinations), FALSE, TRUE),
+    extreme_poverty_b = ifelse(is.na(extreme_poverty), FALSE, TRUE),
+    stringency_index_b = ifelse(is.na(stringency_index), FALSE, TRUE)
+  )
 # SPLIT INTO TRAINING AND TESTING SET HERE FOR THE ABOVE DATAS
 
 train_nn  <- data_nn2 |> arrange(date) %>% filter(date < as.Date("2023-01-01"))

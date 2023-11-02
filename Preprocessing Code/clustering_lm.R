@@ -125,7 +125,7 @@ cluster_tuned %>% collect_metrics()
 #           16 silhouette_avg standard   0.934    15 0.00537 Preprocessor1_Model5
 
 # 2. Predictions using clustering
-cluster_model = k_means(num_clusters = 16) %>%
+cluster_model = k_means(num_clusters = 10) %>%
   set_engine("ClusterR")
 cluster_wflow = workflow() %>%
   add_model(cluster_model) %>%
@@ -194,8 +194,8 @@ for (i in data_vars) {
 # }
 # View(final_test %>% skim_without_charts())
 
-write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
-write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_lm.rds")
+# write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
+# write_rds(final_test %>% select(-c(.pred_cluster)), "data/finalized_data/final_test_lm.rds")
 
 
 
