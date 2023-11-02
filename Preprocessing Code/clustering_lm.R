@@ -125,6 +125,12 @@ cluster_tuned %>% collect_metrics()
 #           16 silhouette_avg standard   0.934    15 0.00537 Preprocessor1_Model5
 
 # 2. Predictions using clustering
+train_freena = na.omit(train_lm) %>%
+  filter(between(date, as.Date("2021-02-01"), as.Date("2022-03-01"))) %>%
+  filter(!is.na(life_expectancy) & !is.na(female_smokers) & !is.na(male_smokers))
+cluster_recipe = recipe(~ life_expectancy + female_smokers + male_smokers,
+                        data = train_freena) %>%
+  step_normalize(all_numeric_predictors())
 cluster_model = k_means(num_clusters = 10) %>% # using 10 clusters to stay consistent from before
   set_engine("ClusterR")
 cluster_wflow = workflow() %>%
@@ -186,12 +192,12 @@ for (i in data_vars) {
 # View(final_test %>% skim_without_charts())
 
 # Replace the remaining missingness with median values by clustering from training set.
-# for (i in seq(1, nrow(final_test))) {
-#   if (is.na(final_test$stringency_index[i])) {
-#     final_test$stringency_index[i] =
-#       (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$stringency_index
-#   }
-# }
+for (i in seq(1, nrow(final_test))) {
+  if (is.na(final_test$stringency_index[i])) {
+    final_test$stringency_index[i] =
+      (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$stringency_index
+  }
+}
 # View(final_test %>% skim_without_charts())
 
 # write_rds(final_train %>% select(-c(.pred_cluster)), "data/finalized_data/final_train_lm.rds")
