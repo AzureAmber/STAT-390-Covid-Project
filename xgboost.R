@@ -41,7 +41,7 @@ btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
     G20 = ifelse(G20, 1, 0),
     G24 = ifelse(G24, 1, 0)) %>%
   step_dummy(all_nominal_predictors())
-View(btree_recipe %>% prep() %>% bake(new_data = NULL))
+# View(btree_recipe %>% prep() %>% bake(new_data = NULL))
 
 btree_wflow = workflow() %>%
   add_model(btree_model) %>%
@@ -50,7 +50,7 @@ btree_wflow = workflow() %>%
 # 4. Setup tuning grid
 btree_params = btree_wflow %>%
   extract_parameter_set_dials() %>%
-  update(mtry = mtry(c(10,40)), tree_depth = tree_depth(c(2,20)))
+  update(mtry = mtry(c(5,15)), tree_depth = tree_depth(c(2,20)))
 btree_grid = grid_regular(btree_params, levels = 3)
 
 # 5. Model Tuning
