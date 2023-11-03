@@ -94,6 +94,10 @@ final_set = cur_set %>%
   bind_cols(predict(cluster_fit, new_data = cur_set))
 # View(final_set %>% skim_without_charts())
 
+data_avg = final_set %>%
+  group_by(.pred_cluster) %>%
+  summarise(across(where(is.numeric), ~ median(.x, na.rm = TRUE)))
+
 final_set %>%
   group_by(.pred_cluster) %>%
   summarise(v = paste(unique(location), collapse = ", "))
@@ -117,6 +121,7 @@ for (i in data_vars) {
 # Merge this dataset with the training set outside the above date range to
 # get the final training set
 temp_set = train_tree %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
+# View(temp_set %>% skim_without_charts())
 v = 1e15
 temp_set = replace(temp_set, is.na(temp_set), v)
 final_train = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
@@ -125,8 +130,20 @@ final_train = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
 
 
 # Do the same for the testing set
-final_test = replace(test_tree, is.na(test_tree), v)
+final_test = test_tree %>%
+  bind_cols(predict(cluster_fit, new_data = test_tree))
 # View(final_test %>% skim_without_charts())
+for (i in seq(1, nrow(final_test))) {
+  if (is.na(final_test$new_cases[i])) {
+    final_test$new_cases[i] =
+      (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$new_cases
+  }
+}
+# View(final_test %>% skim_without_charts())
+final_test = replace(final_test, is.na(final_test), v)
+# View(final_test %>% skim_without_charts())
+
+
 
 # write_rds(final_train, "data/finalized_data/final_train_tree.rds")
 # write_rds(final_test, "data/finalized_data/final_test_tree.rds")

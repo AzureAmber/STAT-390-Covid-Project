@@ -68,10 +68,11 @@ tic('arima')
 arima_tuned = tune_grid(
   arima_wflow,
   resamples = data_folds,
+  grid = arima_grid,
   control = control_grid(save_pred = TRUE,
                          save_workflow = TRUE,
                          parallel_over = "everything"),
-  metrics = metric_set(rmse, rsq)
+  metrics = metric_set(rmse)
 )
 
 toc(log = TRUE)
