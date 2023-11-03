@@ -120,11 +120,20 @@ for (i in data_vars) {
 # This is the training set with missingness imputed between Feb 2021 to March 2022
 # Merge this dataset with the training set outside the above date range to
 # get the final training set
-temp_set = train_tree %>% filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
+temp_set = train_tree %>%
+  filter(date < as.Date("2021-02-01") | date > as.Date("2022-03-01"))
+temp_set = temp_set %>%
+  bind_cols(predict(cluster_fit, new_data = temp_set))
 # View(temp_set %>% skim_without_charts())
+for (i in seq(1, nrow(temp_set))) {
+  if (is.na(temp_set$new_cases[i])) {
+    temp_set$new_cases[i] =
+      (data_avg %>% filter(.pred_cluster == temp_set$.pred_cluster[i]))$new_cases
+  }
+}
 v = 1e15
 temp_set = replace(temp_set, is.na(temp_set), v)
-final_train = temp_set %>% bind_rows(final_set %>% select(-c(.pred_cluster)))
+final_train = temp_set %>% bind_rows(final_set) %>% select(-c(.pred_cluster))
 # View(final_train %>% skim_without_charts())
 
 
@@ -139,7 +148,6 @@ for (i in seq(1, nrow(final_test))) {
       (data_avg %>% filter(.pred_cluster == final_test$.pred_cluster[i]))$new_cases
   }
 }
-# View(final_test %>% skim_without_charts())
 final_test = replace(final_test, is.na(final_test), v)
 # View(final_test %>% skim_without_charts())
 
