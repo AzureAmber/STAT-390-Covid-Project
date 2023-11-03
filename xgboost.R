@@ -9,7 +9,7 @@ library(doParallel)
 
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(15)
+cores.cluster = makePSOCKcluster(20)
 registerDoParallel(cores.cluster)
 
 
@@ -36,7 +36,6 @@ btree_model = boost_tree(
 
 btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
   step_rm(date) %>%
-  step_normalize(all_numeric_predictors()) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
     G24 = ifelse(G24, 1, 0)) %>%

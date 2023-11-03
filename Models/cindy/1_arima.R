@@ -24,12 +24,12 @@ registerDoParallel(cores.cluster)
 train_lm = readRDS('data/finalized_data/final_train_lm.rds')
 test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
-# 2. Create validation sets for every 3 months train + 1 month test with month increments
+# 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
   train_lm,
-  initial = 30*6,
-  assess = 30,
-  skip = 30*3,
+  initial = 366,
+  assess = 30*2,
+  skip = 30*4,
   cumulative = FALSE
 )
 data_folds
@@ -49,7 +49,12 @@ arima_model <- arima_reg(
   set_engine("arima") 
 
 arima_recipe <- recipe(new_cases ~ ., data = train_lm) %>%
-  step_rm(date) 
+  step_rm(date) %>%
+  step_mutate(
+    G20 = ifelse(G20, 1, 0),
+    G24 = ifelse(G24, 1, 0)) %>%
+  step_dummy(all_nominal_predictors())
+# View(arima_recipe %>% prep() %>% bake(new_data = NULL))
 
 arima_wflow = workflow() %>%
   add_model(arima_model) %>%
