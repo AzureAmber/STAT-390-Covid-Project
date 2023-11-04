@@ -21,11 +21,11 @@ registerDoParallel(cores.cluster)
 
 
 # 1. Read in data
-train_lm = readRDS('data/finalized_data/final_train_lm.rds')
-test_lm = readRDS('data/finalized_data/final_test_lm.rds')
+train_lm <- readRDS('data/finalized_data/final_train_lm.rds')
+test_lm <- readRDS('data/finalized_data/final_test_lm.rds')
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
-data_folds = rolling_origin(
+data_folds <- rolling_origin(
   train_lm,
   initial = 366,
   assess = 30*2,
@@ -56,7 +56,7 @@ arima_recipe <- recipe(new_cases ~ ., data = train_lm) %>%
   step_dummy(all_nominal_predictors())
 # View(arima_recipe %>% prep() %>% bake(new_data = NULL))
 
-arima_wflow = workflow() %>%
+arima_wflow <- workflow() %>%
   add_model(arima_model) %>%
   add_recipe(arima_recipe)
 
@@ -70,7 +70,7 @@ arima_grid <- grid_regular(arima_params, levels = 3)
 tic.clearlog()
 tic('arima')
 
-arima_tuned = tune_grid(
+arima_tuned <- tune_grid(
   arima_wflow,
   resamples = data_folds,
   grid = arima_grid,

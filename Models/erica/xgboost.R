@@ -3,22 +3,22 @@ library(tidymodels)
 library(doParallel)
 
 # Source
-# https://juliasilge.com/blog/xgboost-tune-volleyball/
+# https://juliasilge.com
 
 
 
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(20)
+cores.cluster <- makePSOCKcluster(4)
 registerDoParallel(cores.cluster)
 
 
 # 1. Read in data
-train_tree = readRDS('data/finalized_data/final_train_tree.rds')
-test_tree = readRDS('data/finalized_data/final_test_tree.rds')
+train_tree <- readRDS('data/finalized_data/final_train_tree.rds')
+test_tree <- readRDS('data/finalized_data/final_test_tree.rds')
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
-data_folds = rolling_origin(
+data_folds <- rolling_origin(
   train_tree,
   initial = 366,
   assess = 30*2,
@@ -28,29 +28,42 @@ data_folds = rolling_origin(
 data_folds
 
 # 3. Define model, recipe, and workflow
-btree_model = boost_tree(
-    trees = 1000, tree_depth = tune(),
-    learn_rate = tune(), min_n = tune(), mtry = tune(),
-    stop_iter = tune()) %>%
-  set_engine('xgboost') %>%
-  set_mode('regression')
-
-btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
+tree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
   step_rm(date) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
     G24 = ifelse(G24, 1, 0)) %>%
   step_dummy(all_nominal_predictors())
-# View(btree_recipe %>% prep() %>% bake(new_data = NULL))
 
-btree_wflow = workflow() %>%
+
+btree_model <- boost_tree(
+  trees = 1000, tree_depth = tune(),
+  learn_rate = tune(), min_n = tune(), mtry = tune(),
+  stop_iter = tune()) %>%
+  set_engine('xgboost') %>%
+  set_mode('regression')
+
+btree_wflow <- workflow() %>%
   add_model(btree_model) %>%
   add_recipe(btree_recipe)
 
 # 4. Setup tuning grid
-btree_params = btree_wflow %>%
+
+# btree_grid <-
+#   grid_latin_hypercube(
+#     mtry(range = c(5L, 15L)),
+#     tree_depth(range = c(2,20)),
+#     stop_iter(range = c(10L, 50L)),
+#     size = 3
+#   )
+
+btree_params <- btree_wflow %>%
   extract_parameter_set_dials() %>%
-  update(mtry = mtry(c(5,15)), tree_depth = tree_depth(c(2,20)))
+  update(mtry = mtry(c(5,15)),
+         tree_depth = tree_depth(c(2,20)),
+         stop_iter = stop_iter(c(10L,50L))
+  )
+
 btree_grid = grid_regular(btree_params, levels = 3)
 
 # 5. Model Tuning
