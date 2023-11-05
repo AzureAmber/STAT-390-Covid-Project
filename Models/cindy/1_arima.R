@@ -1,10 +1,17 @@
 library(tidyverse)
 library(tidymodels)
+<<<<<<< Updated upstream
 library(doParallel)
 library(parallel)
 library(tictoc)
 library(forecast)
 library(tseries)
+=======
+library(modeltime)
+library(doParallel)
+library(parallel)
+library(tictoc)
+>>>>>>> Stashed changes
 
 tidymodels_prefer()
 
@@ -21,8 +28,13 @@ registerDoParallel(cores.cluster)
 
 
 # 1. Read in data
+<<<<<<< Updated upstream
 train_lm <- readRDS('data/finalized_data/final_train_lm.rds')
 test_lm <- readRDS('data/finalized_data/final_test_lm.rds')
+=======
+train_lm <- read_rds('data/finalized_data/final_train_lm.rds')
+test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
+>>>>>>> Stashed changes
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
@@ -90,7 +102,11 @@ stopCluster(cores.cluster)
 arima_tuned %>% collect_metrics()
 
 
+<<<<<<< Updated upstream
 save(arima_tuned, arima_tictoc, file = "Models/cindy/results/arima_tuned.rda")
+=======
+save(arima_tuned, arima_tictoc, file = "Models/cindy/results/arima_tuned_1.rda")
+>>>>>>> Stashed changes
 
 
 
