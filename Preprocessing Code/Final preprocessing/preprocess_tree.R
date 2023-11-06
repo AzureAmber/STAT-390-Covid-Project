@@ -65,7 +65,7 @@ test_tree <- data_tree2 |> arrange(date) %>% filter(date >= as.Date("2023-01-01"
 
 
 # Imputation for random missingness using clustering
-# refer to file clustering.R
+# refer to file clustering_tree.R
 
 
 
