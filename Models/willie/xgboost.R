@@ -30,8 +30,7 @@ data_folds
 # 3. Define model, recipe, and workflow
 btree_model = boost_tree(
     trees = 1000, tree_depth = tune(),
-    learn_rate = tune(), min_n = tune(), mtry = tune(),
-    stop_iter = tune()) %>%
+    learn_rate = tune(), min_n = tune(), mtry = tune()) %>%
   set_engine('xgboost') %>%
   set_mode('regression')
 
@@ -50,7 +49,11 @@ btree_wflow = workflow() %>%
 # 4. Setup tuning grid
 btree_params = btree_wflow %>%
   extract_parameter_set_dials() %>%
-  update(mtry = mtry(c(5,15)), tree_depth = tree_depth(c(2,20)))
+  update(
+    min_n = min_n(c(5,15)),
+    mtry = mtry(c(5,15)),
+    tree_depth = tree_depth(c(2,20))
+  )
 btree_grid = grid_regular(btree_params, levels = 3)
 
 # 5. Model Tuning
@@ -70,8 +73,42 @@ btree_tuned %>% collect_metrics() %>%
   group_by(.metric) %>%
   arrange(mean)
 
+# 6. Results
+autoplot(btree_tuned, metric = "rmse")
 
+# 7. Fit Best Model
+# Increase tree_depth, learn_rate, mtry
+# Decrease min_n
+btree_model = boost_tree(
+  trees = 1000, tree_depth = 20,
+  learn_rate = 0.32, min_n = 5, mtry = 15) %>%
+  set_engine('xgboost') %>%
+  set_mode('regression')
+btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
+  step_rm(date) %>%
+  step_mutate(
+    G20 = ifelse(G20, 1, 0),
+    G24 = ifelse(G24, 1, 0)) %>%
+  step_dummy(all_nominal_predictors())
+btree_wflow = workflow() %>%
+  add_model(btree_model) %>%
+  add_recipe(btree_recipe)
 
+btree_fit = fit(btree_wflow, data = train_tree)
+final_train = train_tree %>%
+  bind_cols(predict(btree_fit, new_data = train_tree)) %>%
+  rename(pred = .pred)
+
+ggplot(final_train %>% filter(location == "United States")) +
+  geom_line(aes(date, new_cases), color = 'red') +
+  geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15)
+
+library(ModelMetrics)
+results = final_train %>%
+  group_by(location) %>%
+  summarise(value = rmse(new_cases, pred)) %>%
+  arrange(location)
 
 
 
