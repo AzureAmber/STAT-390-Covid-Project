@@ -1,11 +1,10 @@
 library(tidyverse)
 library(tidymodels)
-library(doParallel)
 library(forecast)
-library(tseries)
+library(timetk)
 library(tictoc)
 library(modeltime)
-library(dials)
+library(tseries)
 
 tidymodels_prefer()
 
@@ -18,7 +17,9 @@ test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 time_series <- train_lm %>% select(new_cases) %>% as.ts()
 
 # Plot the time series
-plot(time_series)
+train_lm |> 
+  select(date, new_cases) |> 
+  plot_time_series(date, new_cases)
 
 # Stationarity
 adf.test(time_series)
