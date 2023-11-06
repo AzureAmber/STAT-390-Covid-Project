@@ -1,40 +1,30 @@
 library(tidyverse)
 library(tidymodels)
-<<<<<<< Updated upstream
 library(doParallel)
-library(parallel)
 library(tictoc)
 library(forecast)
 library(tseries)
-=======
 library(modeltime)
-library(doParallel)
-library(parallel)
-library(tictoc)
->>>>>>> Stashed changes
+library(dials)
 
 tidymodels_prefer()
 
 # Source
 # https://business-science.github.io/modeltime/reference/arima_reg.html 
 # https://www.youtube.com/watch?v=zB_0Yxxs0b4 
+# https://www.youtube.com/watch?v=-bCelif-ENY **
 
 # NOTE: will need to set seed on final run
 
 # Setup parallel processing
 detectCores() # 8
-cores.cluster <- makePSOCKcluster(4)
+cores.cluster <- makePSOCKcluster(5)
 registerDoParallel(cores.cluster)
 
 
 # 1. Read in data
-<<<<<<< Updated upstream
-train_lm <- readRDS('data/finalized_data/final_train_lm.rds')
-test_lm <- readRDS('data/finalized_data/final_test_lm.rds')
-=======
 train_lm <- read_rds('data/finalized_data/final_train_lm.rds')
 test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
->>>>>>> Stashed changes
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
@@ -47,17 +37,7 @@ data_folds <- rolling_origin(
 data_folds
 
 # 3. Define model, recipe, and workflow
-arima_model <- arima_reg(
-  # auto by default
-  seasonal_period = "auto",
-  non_seasonal_ar = tune(),
-  non_seasonal_differences = tune(),
-  non_seasonal_ma = tune(),
-  # used values from example
-  seasonal_ar              = 1,
-  seasonal_differences     = 0,
-  seasonal_ma              = 1
-) %>%
+arima_model <- arima_reg() |> 
   set_engine("arima") 
 
 arima_recipe <- recipe(new_cases ~ ., data = train_lm) %>%
@@ -73,8 +53,7 @@ arima_wflow <- workflow() %>%
   add_recipe(arima_recipe)
 
 # 4. Setup tuning grid
-arima_params <- arima_wflow %>%
-  extract_parameter_set_dials() 
+arima_params <- parameters(arima_model)
 
 arima_grid <- grid_regular(arima_params, levels = 3)
 
@@ -101,12 +80,7 @@ stopCluster(cores.cluster)
 # 6. Save results
 arima_tuned %>% collect_metrics()
 
-
-<<<<<<< Updated upstream
-save(arima_tuned, arima_tictoc, file = "Models/cindy/results/arima_tuned.rda")
-=======
 save(arima_tuned, arima_tictoc, file = "Models/cindy/results/arima_tuned_1.rda")
->>>>>>> Stashed changes
 
 
 
