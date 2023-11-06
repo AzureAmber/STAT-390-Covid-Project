@@ -51,3 +51,4 @@ rsconnect/
 
 # Big results
 Models/cindy/results/btree_tuned_1.rda
+Models/cindy/results/autoarima_results1.rda
