@@ -25,10 +25,10 @@ data_folds <- rolling_origin(
   skip = 30*4,
   cumulative = FALSE
 )
-data_folds
+#data_folds
 
 # 3. Define model, recipe, and workflow
-tree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
+tree_recipe <- recipe(new_cases ~ ., data = train_tree) %>%
   step_rm(date) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
@@ -59,12 +59,14 @@ btree_wflow <- workflow() %>%
 
 btree_params <- btree_wflow %>%
   extract_parameter_set_dials() %>%
-  update(mtry = mtry(c(5,15)),
-         tree_depth = tree_depth(c(2,20)),
-         stop_iter = stop_iter(c(10L,50L))
+  update(mtry = mtry(c(1,5)),
+         tree_depth = tree_depth(c(20,45)),
+         stop_iter = stop_iter(c(10,50)),
+         learn_rate = learn_rate(c(-1,0)),
+         min_n = min_n(c(1,3))
   )
 
-btree_grid = grid_regular(btree_params, levels = 3)
+btree_grid <- grid_regular(btree_params, levels = 3)
 
 # 5. Model Tuning
 btree_tuned = tune_grid(
@@ -74,7 +76,7 @@ btree_tuned = tune_grid(
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
-  metrics = metric_set(rmse)
+  metrics = metric_set(rmse, rsq)
 )
 
 stopCluster(cores.cluster)
@@ -82,6 +84,10 @@ stopCluster(cores.cluster)
 btree_tuned %>% collect_metrics() %>%
   group_by(.metric) %>%
   arrange(mean)
+
+# 6. results
+show_best(btree_tuned, metric = "rmse")
+autoplot(btree_tuned, metric = "rmse")
 
 
 
