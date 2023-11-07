@@ -11,6 +11,7 @@ library(tseries)
 # Source
 # http://datasideoflife.com/?p=1171
 # https://www.datatechnotes.com/2019/01/regression-example-with-lstm-networks.html
+# https://www.youtube.com/watch?v=rn8HrlHICfE
 
 
 # NOTE: will need to set seed on final run

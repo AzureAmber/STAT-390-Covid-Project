@@ -8,19 +8,32 @@ library(factoextra)
 # tree based models = give large values
 # neural networks = create boolean indicator variable 
 
-data = read_csv('data/raw_data/owid-covid-data.csv')
+data <- read_csv('data/raw_data/owid-covid-data.csv')
 
-g20 = c('Argentina', 'Australia', 'Canada', 'France', 'Germany',
+g20 <- c('Argentina', 'Australia', 'Canada', 'France', 'Germany',
         'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
         'Saudi Arabia', 'South Africa', 'Turkey', 'United Kingdom', 'United States')
-g24 = c('Argentina', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
+g24 <- c('Argentina', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
-data_cur = data %>%
+data_cur <- data %>%
   filter(location %in% c(g20, g24)) %>%
   mutate(G20 = location %in% g20,
          G24 = location %in% g24,
          month = as.factor(month(date)), 
          day_of_week = weekdays(date)) 
+
+data %>% 
+  filter(location %in% c(g20, g24)) %>%
+  mutate(G20 = location %in% g20,
+         G24 = location %in% g24,
+         month_name = month.abb[month(date)],
+         month = month(date),
+         year = as.factor(year(date)),
+         day_of_week = weekdays(date)
+  ) %>% 
+  ggplot(aes( x= month, y = new_cases, color = year)) +
+  geom_line()
+  
 
 
 
