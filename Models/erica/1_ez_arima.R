@@ -24,6 +24,13 @@ test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 
 
 
+
+
+
+
+
+############ hard code p, d, q #########################
+
 train_lm %>% 
   select(date, new_cases) %>% 
   ggplot(aes(x = date, y = new_cases))+
