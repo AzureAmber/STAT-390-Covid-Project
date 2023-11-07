@@ -24,6 +24,13 @@ test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 
 
 
+
+
+
+
+
+############ hard code p, d, q #########################
+
 train_lm %>% 
   select(date, new_cases) %>% 
   ggplot(aes(x = date, y = new_cases))+
@@ -49,7 +56,7 @@ train_lm %>%
 #   ggplot(aes(x=date, y=new_cases_daily_change))+geom_line()
 
 train_lm_2 <- train_lm %>% 
-  mutate(new_cases_daily_change = new_cases - lag(new_cases, 1))
+  mutate(new_cases_daily_change = new_cases - dplyr::lag(new_cases, 1))
 
 train_lm_2 %>% 
   select(new_cases_daily_change) %>% 
@@ -59,6 +66,7 @@ train_lm_2 %>%
 
 
 # with original linear model training data -> (5,1,0)
+
 train_lm %>% 
   select(new_cases) %>% 
   ts() %>% 
@@ -73,7 +81,7 @@ train_lm %>%
 # 
 # Model df: 5.   Total lags used: 10
 
-
+#train model with (5,1,0)
 arima_model <- Arima(train_lm$new_cases, order = c(5,1,0))
 
 summary(arima_model)
@@ -93,24 +101,48 @@ summary(arima_model)
 #   ME     RMSE      MAE MPE MAPE      MASE        ACF1
 # Training set 0.5801916 66723.41 23809.29 NaN  Inf 0.9970063 -0.02747603
 
+#plot fit vs actual data in training set
 ts_train_lm <- train_lm %>% 
   select(new_cases) %>% 
   ts(frequency = 366)
 
-fitted_values <- fitted(arima_model)
-
-plot(ts_train_lm, main = "ARIMA Model Fit vs Actual Data", ylab = "Values", xlab = "Time", col = "blue")
-
+fitted_values_normal <- fitted(arima_model)
+plot(ts_train_lm, main = "ARIMA Model Fit vs Actual Data (Training)", ylab = "Values", xlab = "Time", col = "blue")
 lines(fitted_values, col = "red")
-
 legend("topleft", legend = c("Actual", "Fitted"), col = c("blue", "red"), lty = 1)
 
+#forecast test set values using training model
+forecasts_normal <- forecast(fitted_values_normal, h = 12)
+
+#find RMSE of the test result
+forecast_accuracy_normal <- forecast::accuracy(forecasts_normal, test_lm$new_cases)
+rmse_value_normal <- forecast_accuracy_normal['Test set', 'RMSE']
+print(rmse_value_normal) #21274.42
+
+#plot fit vs actual data in test set
+predicted_values <- forecasts_normal$mean
+
+# Create a time series plot of the actual test values
+plot(test_lm$new_cases, type = 'l', col = 'red', 
+     ylim = range(c(test_lm$new_cases, predicted_values)), 
+     ylab = "Values", xlab = "Time Index", 
+     main = "Actual vs Forecasted Values (Test)")
+
+# Add the forecasted values to the plot
+lines(predicted_values, col = 'blue', type = 'l', lwd=2, lty=2)
+
+# Add a legend to differentiate the lines
+legend("topright", legend=c("Actual", "Forecasted"), col=c("red", "blue"), 
+       lty=1:2, lwd=2, cex=0.8)
 
 
 
 
 
-# with one lag -> (5,0,0)
+########### first differencing -> new_cases_daily_change (new target variable) ############
+
+
+# t0 - t(-1) -> (5,0,0)
 train_lm_2 %>% 
   select(new_cases_daily_change) %>% 
   ts() %>% 
@@ -149,13 +181,35 @@ ts_train_lm_lag <- train_lm_2 %>%
   select(new_cases_daily_change) %>% 
   ts(frequency = 366)
 
-fitted_values <- fitted(arima_model_lag)
+fitted_values_lag <- fitted(arima_model_lag)
 
 plot(ts_train_lm_lag, main = "ARIMA Model Fit vs Actual Data", ylab = "Values", xlab = "Time", col = "blue")
 
 lines(fitted_values, col = "red")
 
 legend("topleft", legend = c("Actual", "Fitted"), col = c("blue", "red"), lty = 1)
+
+test_lm_2 <- test_lm %>% 
+  mutate(new_cases_daily_change = new_cases - dplyr::lag(new_cases, 1))
+
+forecasts_lag <- forecast(fitted_values_lag, h = length(test_lm_2$new_cases_daily_change))
+
+
+forecast_accuracy_lag <- forecast::accuracy(forecasts_lag, test_lm_2$new_cases_daily_change)
+rmse_value_lag <- forecast_accuracy_lag['RMSE']
+
+print(rmse_value_lag)
+
+predicted_values_lag <- forecasts_lag$mean
+
+# Create a time series plot of the actual test values
+plot(test_lm_2$new_cases_daily_change, type = 'l', col = 'red', ylab = "Values", xlab = "Time Index", main = "Actual vs Forecasted Values (Test)")
+
+# Add the forecasted values to the plot
+lines(predicted_values_lag, col = 'blue', type = 'l')
+
+# Add a legend to differentiate the lines
+legend("topright", legend=c("Actual", "Forecasted"), col=c("red", "blue"), lty=1, cex=0.8)
 
 
 
@@ -174,28 +228,12 @@ train_lm %>%
 
 
 
-############ keep the code below
-
-# Check residuals for randomness, to ensure a good fit
-checkresiduals(arima_model)
 
 
 
 
-# Fit the ARIMA model 
-# p = AR terms 
-# d = differencing (to make ts stationary)
-# q = MA terms
-arima_model <- Arima(train_lm_2$new_cases_daily_change, order=c(5, 0, 0)) # white noise model
 
 
-
-
-# Forecast
-forecasted_values <- forecast(arima_model, h=10) # 'h' is the forecast horizon
-
-# Plot forecast
-plot(forecasted_values)
 
 
 
