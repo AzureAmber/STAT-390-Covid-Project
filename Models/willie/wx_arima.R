@@ -17,9 +17,20 @@ registerDoParallel(cores.cluster)
 train_lm = readRDS('data/finalized_data/final_train_lm.rds')
 test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
+train_lm_fix = train_lm %>%
+  group_by(location) %>%
+  mutate(new_cases_scaled = (new_cases - mean(new_cases)) / sqrt(var(new_cases))) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
+test_lm_fix = test_lm %>%
+  group_by(location) %>%
+  mutate(new_cases_scaled = (new_cases - mean(new_cases)) / sqrt(var(new_cases))) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
+
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
-  train_lm,
+  train_lm_fix,
   initial = 366,
   assess = 30*2,
   skip = 30*4,
@@ -34,7 +45,7 @@ arima_model = arima_reg(
   seasonal_ar = 1, seasonal_differences = tune(), seasonal_ma = 1) %>%
   set_engine('arima')
 
-arima_recipe = recipe(new_cases ~ date, data = train_lm)
+arima_recipe = recipe(new_cases_scaled ~ date, data = train_lm_fix)
 # View(arima_recipe %>% prep() %>% bake(new_data = NULL))
 
 arima_wflow = workflow() %>%
@@ -47,7 +58,7 @@ arima_params = arima_wflow %>%
   update(
     non_seasonal_ar = non_seasonal_ar(c(0, 6)),
     non_seasonal_ma = non_seasonal_ma(c(0, 6)),
-    seasonal_differences = seasonal_differences(c(0,2))
+    seasonal_differences = seasonal_differences(c(0,1))
   )
 arima_grid = grid_regular(arima_params, levels = 3)
 
@@ -78,25 +89,25 @@ arima_model = arima_reg(
   non_seasonal_ar = 6, non_seasonal_differences = 0, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('arima')
-arima_recipe = recipe(new_cases ~ date, data = train_lm)
+arima_recipe = recipe(new_cases_scaled ~ date, data = train_lm_fix)
 arima_wflow = workflow() %>%
   add_model(arima_model) %>%
   add_recipe(arima_recipe)
 
-arima_fit = fit(arima_wflow, data = train_lm)
-final_train = train_lm %>%
-  bind_cols(predict(arima_fit, new_data = train_lm)) %>%
+arima_fit = fit(arima_wflow, data = train_lm_fix)
+final_train = train_lm_fix %>%
+  bind_cols(predict(arima_fit, new_data = train_lm_fix)) %>%
   rename(pred = .pred)
 
 ggplot(final_train %>% filter(location == "Argentina")) +
-  geom_line(aes(date, new_cases), color = 'red') +
+  geom_line(aes(date, new_cases_scaled), color = 'red') +
   geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15)
 
 library(ModelMetrics)
 results = final_train %>%
   group_by(location) %>%
-  summarise(value = rmse(new_cases, pred)) %>%
+  summarise(value = rmse(new_cases_scaled, pred)) %>%
   arrange(location)
 
 
