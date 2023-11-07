@@ -1,6 +1,7 @@
 library(tidyverse)
 library(tidymodels)
 library(doParallel)
+library(ModelMetrics)
 
 # Source
 # https://juliasilge.com
@@ -9,7 +10,7 @@ library(doParallel)
 
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster <- makePSOCKcluster(4)
+cores.cluster <- makePSOCKcluster(10)
 registerDoParallel(cores.cluster)
 
 
@@ -28,7 +29,7 @@ data_folds <- rolling_origin(
 #data_folds
 
 # 3. Define model, recipe, and workflow
-tree_recipe <- recipe(new_cases ~ ., data = train_tree) %>%
+btree_recipe <- recipe(new_cases ~ ., data = train_tree) %>%
   step_rm(date) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
@@ -37,7 +38,7 @@ tree_recipe <- recipe(new_cases ~ ., data = train_tree) %>%
 
 
 btree_model <- boost_tree(
-  trees = 1000, tree_depth = tune(),
+  trees = 2000, tree_depth = tune(),
   learn_rate = tune(), min_n = tune(), mtry = tune(),
   stop_iter = tune()) %>%
   set_engine('xgboost') %>%
@@ -85,12 +86,62 @@ btree_tuned %>% collect_metrics() %>%
   group_by(.metric) %>%
   arrange(mean)
 
+save(btree_tuned, file = "Models/erica/results/btree_tuned_1.rda")
+
 # 6. results
 show_best(btree_tuned, metric = "rmse")
-autoplot(btree_tuned, metric = "rmse")
 
 
+btree_tuned %>% collect_metrics() %>%
+  group_by(.metric) %>%
+  arrange(mean)
+
+btree_autoplot <- autoplot(btree_tuned, metric = "rmse")
+
+save(btree_autoplot, file = "Models/erica/results/btree_autoplot_1.png")
 
 
+# **FIX CODE BELOW**
 
+# 7. Fit Best Model
+# Increase tree_depth, learn_rate, mtry
+# Decrease min_n
+btree_model <- boost_tree(
+  # increased number of trees
+  trees = 1000, 
+  tree_depth = 20,
+  learn_rate = 0.32, 
+  min_n = 2, 
+  mtry = 16) %>%
+  set_engine('xgboost') %>%
+  set_mode('regression')
+
+btree_recipe <- recipe(new_cases ~ ., data = train_tree) %>%
+  step_rm(date) %>%
+  step_mutate(
+    G20 = ifelse(G20, 1, 0),
+    G24 = ifelse(G24, 1, 0)) %>%
+  step_dummy(all_nominal_predictors())
+
+btree_wflow <- workflow() %>%
+  add_model(btree_model) %>%
+  add_recipe(btree_recipe)
+
+btree_fit <- fit(btree_wflow, data = train_tree)
+
+final_train <- train_tree %>%
+  bind_cols(predict(btree_fit, new_data = train_tree)) %>%
+  rename(pred = .pred)
+
+ggplot(final_train %>% filter(location == "United States")) +
+  geom_line(aes(date, new_cases), color = 'red') +
+  geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15)
+
+
+#predictions on country level
+results <- final_train %>%
+  group_by(location) %>%
+  summarise(value = rmse(new_cases, pred)) %>%
+  arrange(location)
 
