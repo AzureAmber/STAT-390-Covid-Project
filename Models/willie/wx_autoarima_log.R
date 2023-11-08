@@ -9,33 +9,36 @@ library(RcppRoll)
 train_lm = readRDS('data/finalized_data/final_train_lm.rds')
 test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
-# weekly rolling average of new cases
-train_lm = train_lm %>%
-  group_by(location) %>%
-  arrange(date, .by_group = TRUE) %>%
-  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
-  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
-  arrange(date, .by_group = TRUE) %>%
-  slice(which(row_number() %% 7 == 0)) %>%
-  mutate(seasonality_group = row_number() %% 53) %>%
-  ungroup() %>%
-  mutate(seasonality_group = as.factor(seasonality_group))
-test_lm = test_lm %>%
-  group_by(location) %>%
-  arrange(date, .by_group = TRUE) %>%
-  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
-  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
-  arrange(date, .by_group = TRUE) %>%
-  slice(which(row_number() %% 7 == 0)) %>%
-  mutate(seasonality_group = row_number() %% 53) %>%
-  ungroup() %>%
-  mutate(seasonality_group = as.factor(seasonality_group))
+# weekly rolling average of log of new cases
 complete_lm = train_lm %>% rbind(test_lm) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(
+    cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0),
+    value = roll_mean(cases_log, 7, align = "right", fill = NA)) %>%
+  mutate(value = ifelse(is.na(value), cases_log, value)) %>%
+  arrange(date, .by_group = TRUE) %>%
+  slice(which(row_number() %% 7 == 0)) %>%
+  mutate(
+    time_group = row_number(),
+    seasonality_group = row_number() %% 53) %>%
+  ungroup() %>%
+  mutate(seasonality_group = as.factor(seasonality_group))
+train_lm = complete_lm %>% filter(date < as.Date("2023-01-01")) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
+test_lm = complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 
+
 ggplot(train_lm %>% filter(location == "United States"), aes(date, value)) +
+  geom_point()
+ggplot(train_lm %>% filter(location == "Germany"), aes(date, value)) +
+  geom_point()
+ggplot(train_lm %>% filter(location == "South Korea"), aes(date, value)) +
   geom_point()
 
 # 2. Find model trend by country
@@ -46,11 +49,11 @@ for (i in country_names) {
   data = train_lm %>% filter(location == i)
   complete_data = complete_lm %>% filter(location == i)
   # find linear model by country
-  lm_model = lm(value ~ 0 + time(date) + seasonality_group, data)
+  lm_model = lm(value ~ 0 + time_group + seasonality_group, data)
   x = complete_data %>%
     mutate(
       trend = predict(lm_model, newdata = complete_data),
-      slope = as.numeric(coef(lm_model)["time(date)"]),
+      slope = as.numeric(coef(lm_model)["time_group"]),
       seasonality_add = trend - slope * time(date),
       err = value - trend) %>%
     mutate_if(is.numeric, round, 5)
@@ -59,8 +62,13 @@ for (i in country_names) {
 }
 # plot of original data and trend
 ggplot(train_lm_fix %>% filter(location == "United States")) +
+  geom_line(aes(date, exp(value)), color = 'blue') +
+  geom_line(aes(date, exp(trend)), color = 'red') +
+  labs(title = "Original rolling average vs prediction")
+ggplot(train_lm_fix %>% filter(location == "United States")) +
   geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red')
+  geom_line(aes(date, trend), color = 'red') +
+  labs(title = "Log transformed rolling average vs log prediction")
 # plot of residual errors
 ggplot(x %>% filter(location == "United States"), aes(date, err)) + geom_line()
 
