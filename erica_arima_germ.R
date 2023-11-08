@@ -129,6 +129,9 @@ arima_wflow <- workflow() %>%
   add_model(arima_germ) %>%
   add_recipe(arima_recipe)
 
+save(arima_wflow, file = "Models/erica/results/arima_germ_wflow.rda" )
+
+
 # 4. Setup tuning grid
 arima_params <- arima_wflow %>%
   extract_parameter_set_dials() %>%
