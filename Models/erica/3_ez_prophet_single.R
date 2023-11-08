@@ -7,6 +7,9 @@ library(doParallel)
 # https://www.youtube.com/watch?v=OIQPIefDxx0
 
 
+##### just throw in original data, no need to preprocessing
+
+
 # Setup parallel processing
 # detectCores(logical = FALSE)
 cores.cluster <- makePSOCKcluster(10)
