@@ -12,8 +12,13 @@ tidymodels_prefer()
 
 
 # Setup parallel processing
+<<<<<<< HEAD
 # detectCores(logical = FALSE)
 cores.cluster <- makePSOCKcluster(10)
+=======
+#detectCores(logical = FALSE)
+cores.cluster <- makePSOCKcluster(15)
+>>>>>>> 80f6e5da151e58ddddb4cb547781f3aeee8bc574
 registerDoParallel(cores.cluster)
 
 
