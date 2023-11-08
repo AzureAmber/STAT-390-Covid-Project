@@ -106,7 +106,10 @@ show_best(btree_tuned, metric = "rmse")
 
 btree_autoplot <- autoplot(btree_tuned, metric = "rmse")
 
-save(btree_autoplot, file = "Models/erica/results/btree_autoplot_1.png")
+jpeg("Models/erica/results/xgboost_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
+print(btree_autoplot)
+dev.off()
+
 
 
 # # **FIX CODE BELOW**
