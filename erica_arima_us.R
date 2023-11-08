@@ -129,6 +129,8 @@ arima_wflow <- workflow() %>%
   add_model(arima_us) %>%
   add_recipe(arima_recipe)
 
+save(arima_wflow, file = "Models/erica/results/arima_us_wflow.rda" )
+
 # 4. Setup tuning grid
 arima_params <- arima_wflow %>%
   extract_parameter_set_dials() %>%
@@ -137,10 +139,12 @@ arima_params <- arima_wflow %>%
     seasonal_ma = seasonal_ma(c(0, 2)),
     seasonal_differences = seasonal_differences(c(0,1))
   )
+
+
 arima_grid = grid_regular(arima_params, levels = 3)
 
 # 5. Model Tuning
-arima_tuned <- tune_grid(
+arima_tuned_us <- tune_grid(
   arima_wflow,
   resamples = data_folds,
   grid = arima_grid,
@@ -152,20 +156,48 @@ arima_tuned <- tune_grid(
 
 stopCluster(cores.cluster)
 
-arima_tuned %>% collect_metrics() %>%
+arima_tuned_us %>% collect_metrics() %>%
   group_by(.metric) %>%
   arrange(mean)
 
-save(arima_tuned, file = "Models/erica/results/arima_tuned_us_1.rda")
+save(arima_tuned_us, file = "Models/erica/results/arima_tuned_us_1.rda")
 
 # 6. Results
-arima_us_autoplot <- autoplot(arima_tuned, metric = "rmse")
+arima_us_autoplot <- autoplot(arima_tuned_us, metric = "rmse")
 
 save(arima_us_autoplot, file = "Models/erica/results/arima_us_autoplot.jpeg")
 
-show_best(arima_tuned, metric = "rmse") #with RMSE: 63021
+show_best(arima_tuned_us, metric = "rmse") #best with RMSE: 63021
 
 ## BEST MODEL HYPERPARAMTER: p,d,q: 3,1,5; P,D,Q: 2,0,1
 
-# 7. fit test
 
+# 7. fit train and predict test
+
+arima_wflow_tuned <- arima_wflow %>%
+  finalize_workflow(select_best(arima_tuned_us, metric = "rmse"))
+
+arima_fit <- fit(arima_wflow_tuned, train_us)
+
+predictions <- predict(arima_results, new_data = test_us) %>% 
+  bind_cols(test_us %>% select(date, new_cases))%>% 
+  mutate(estimate = .pred) %>% 
+  select(date, new_cases, estimate)
+
+predictions %>% 
+  rmse(new_cases, estimate) #RMSE: 938631
+
+
+predictions %>% 
+  ggplot(aes(x=date))+
+  geom_line(aes(y=new_cases, color ="red"))+
+  geom_line(aes(y=estimate),
+            color = "blue", linetype = "dashed"))+
+  labs(title = "ARIMA Model Fit vs Actual Data",
+       y = "New Cases", x = "Date")+
+  theme_minimal()+
+  scale_y_continuous(n.breaks = 15)
+  
+            
+  
+  
