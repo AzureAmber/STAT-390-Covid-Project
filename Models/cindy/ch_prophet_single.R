@@ -21,10 +21,12 @@ test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 
 # NOTE: Using United States (Stationary) & Japan (Non-Stationary)
 train_lm_us <- train_lm |> 
-  filter(location == "United States")
+  filter(location == "United States") |> 
+  rename(ds = date, y = new_cases)
 
 train_lm_jp <- train_lm |> 
-  filter(location == "Japan")
+  filter(location == "Japan") |> 
+  rename(ds = date, y = new_cases)
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
@@ -49,8 +51,8 @@ prophet_model <- prophet_reg() |>
              prior_scale_holidays = tune()) |> # strength of holidays component
   set_mode("regression")
 
-prophet_recipe_us <- recipe(new_cases ~ date, data = train_lm_us)
-prophet_recipe_jp <- recipe(new_cases ~ date, data = train_lm_jp)
+prophet_recipe_us <- recipe(y ~ ds, data = train_lm_us)
+prophet_recipe_jp <- recipe(y ~ ds, data = train_lm_jp)
 
 prophet_wflow_us <- workflow() %>%
   add_model(prophet_model) %>%
