@@ -11,7 +11,6 @@ library(ModelMetrics)
 
 
 # Setup parallel processing
-# detectCores(logical = FALSE)
 detectCores() # 8
 cores.cluster <- makePSOCKcluster(4)
 registerDoParallel(cores.cluster)
@@ -98,24 +97,6 @@ show_best(btree_tuned, metric = "rmse")
 #   31     2         20     0.0178        30 rmse    standard   7968.   169   1045. Preprocessor1_Model129
 
 # NEXT STEPS: After finishing all 6 models, need to determine best of 6. THEN, fit the TESTING data to best model. 
-
-
-btree_tuned %>% collect_metrics() %>%
-  group_by(.metric) %>%
-  arrange(mean)
-
-# mtry min_n tree_depth learn_rate stop_iter .metric .estimator  mean     n std_err .config               
-# <int> <int>      <int>      <dbl>     <int> <chr>   <chr>      <dbl> <int>   <dbl> <chr>                 
-# 1     2    40          2      0.001        30 rsq     standard   0.610   156  0.0176 Preprocessor1_Model088
-# 2     2    40          2      0.001        50 rsq     standard   0.610   157  0.0177 Preprocessor1_Model169
-# 3     2    40         20      0.001        30 rsq     standard   0.611   166  0.0168 Preprocessor1_Model106
-# 4     2    40         11      0.001        10 rsq     standard   0.612   161  0.0171 Preprocessor1_Model016
-# 5     2    40          2      0.001        10 rsq     standard   0.614   162  0.0172 Preprocessor1_Model007
-# 6     2    40         20      0.001        50 rsq     standard   0.617   163  0.0168 Preprocessor1_Model187
-# 7     2    40         11      0.001        30 rsq     standard   0.618   170  0.0163 Preprocessor1_Model097
-# 8     2    40         20      0.001        10 rsq     standard   0.619   161  0.0168 Preprocessor1_Model025
-# 9     2    40         11      0.001        50 rsq     standard   0.620   156  0.0172 Preprocessor1_Model178
-# 10    16    40         11      0.001        10 rsq     standard   0.651   155  0.0141 Preprocessor1_Model017
 
 
 autoplot(btree_tuned, metric = "rmse")
