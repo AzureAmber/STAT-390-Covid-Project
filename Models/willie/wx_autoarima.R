@@ -4,38 +4,41 @@ library(modeltime)
 library(doParallel)
 library(RcppRoll)
 
+# Source
+# https://www.r-bloggers.com/2020/06/introducing-modeltime-tidy-time-series-forecasting-using-tidymodels/
+
 
 # 1. Read in data
 train_lm = readRDS('data/finalized_data/final_train_lm.rds')
 test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
 # weekly rolling average of new cases
-train_lm = train_lm %>%
-  group_by(location) %>%
-  arrange(date, .by_group = TRUE) %>%
-  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
-  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
-  arrange(date, .by_group = TRUE) %>%
-  slice(which(row_number() %% 7 == 0)) %>%
-  mutate(seasonality_group = row_number() %% 53) %>%
-  ungroup() %>%
-  mutate(seasonality_group = as.factor(seasonality_group))
-test_lm = test_lm %>%
-  group_by(location) %>%
-  arrange(date, .by_group = TRUE) %>%
-  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
-  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
-  arrange(date, .by_group = TRUE) %>%
-  slice(which(row_number() %% 7 == 0)) %>%
-  mutate(seasonality_group = row_number() %% 53) %>%
-  ungroup() %>%
-  mutate(seasonality_group = as.factor(seasonality_group))
 complete_lm = train_lm %>% rbind(test_lm) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
+  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
+  arrange(date, .by_group = TRUE) %>%
+  slice(which(row_number() %% 7 == 0)) %>%
+  mutate(
+    time_group = row_number(),
+    seasonality_group = row_number() %% 53) %>%
+  ungroup() %>%
+  mutate(seasonality_group = as.factor(seasonality_group))
+train_lm = complete_lm %>% filter(date < as.Date("2023-01-01")) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
+test_lm = complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 
 ggplot(train_lm %>% filter(location == "United States"), aes(date, value)) +
+  geom_point()
+ggplot(train_lm %>% filter(location == "Germany"), aes(date, value)) +
+  geom_point()
+ggplot(train_lm %>% filter(location == "South Korea"), aes(date, value)) +
   geom_point()
 
 # 2. Find model trend by country
@@ -46,11 +49,12 @@ for (i in country_names) {
   data = train_lm %>% filter(location == i)
   complete_data = complete_lm %>% filter(location == i)
   # find linear model by country
-  lm_model = lm(value ~ 0 + time(date) + seasonality_group, data)
+  lm_model = lm(value ~ 0 + time_group + seasonality_group,
+                data %>% filter(between(time_group, 13, nrow(data) - 12)))
   x = complete_data %>%
     mutate(
       trend = predict(lm_model, newdata = complete_data),
-      slope = as.numeric(coef(lm_model)["time(date)"]),
+      slope = as.numeric(coef(lm_model)["time_group"]),
       seasonality_add = trend - slope * time(date),
       err = value - trend) %>%
     mutate_if(is.numeric, round, 5)
@@ -157,22 +161,56 @@ ggplot(final_train) +
   scale_y_continuous(n.breaks = 15) +
   labs(title = "Error vs Error Prediction")
 # prediction models
-# initial prediction with just trend
+# initial prediction with just linear trend
 ggplot(final_train) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only trend")
-# final prediction with trend + arima error modelling
+  labs(title = "Prediction with only linear trend")
+# final prediction with linear trend + arima error modelling
 ggplot(final_train) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with trend + arima")
+  labs(title = "Prediction with linear trend + arima")
 
 library(ModelMetrics)
+# rmse of error prediction
 rmse(final_train$err, final_train$pred_err)
+# rmse of just linear trend
+rmse(final_train$value, final_train$trend)
+# rmse of linear trend + arima
 rmse(final_train$value, final_train$pred)
+
+
+
+# Testing set
+final_test = test_lm_fix %>%
+  bind_cols(predict(autoarima_fit, new_data = test_lm_fix)) %>%
+  rename(pred_err = .pred) %>%
+  mutate(pred = trend + pred_err) %>%
+  mutate_if(is.numeric, round, 5)
+# initial prediction with just linear trend
+ggplot(final_test) +
+  geom_line(aes(date, value), color = 'blue') +
+  geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Log prediction with only linear trend")
+# final prediction with linear trend + arima error modelling
+ggplot(final_test) +
+  geom_line(aes(date, value), color = 'blue') +
+  geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Log prediction with linear trend + arima")
+
+# rmse of just linear trend
+rmse(final_test$value, final_test$trend)
+# rmse of linear trend + arima
+rmse(final_test$value, final_test$pred)
+
+
+
+
 
 
 
