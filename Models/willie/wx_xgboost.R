@@ -6,13 +6,6 @@ library(doParallel)
 # https://juliasilge.com/blog/xgboost-tune-volleyball/
 
 
-
-# Setup parallel processing
-# detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(20)
-registerDoParallel(cores.cluster)
-
-
 # 1. Read in data
 train_tree = readRDS('data/finalized_data/final_train_tree.rds')
 test_tree = readRDS('data/finalized_data/final_test_tree.rds')
@@ -57,6 +50,11 @@ btree_params = btree_wflow %>%
 btree_grid = grid_regular(btree_params, levels = 3)
 
 # 5. Model Tuning
+# Setup parallel processing
+# detectCores(logical = FALSE)
+cores.cluster = makePSOCKcluster(20)
+registerDoParallel(cores.cluster)
+
 btree_tuned = tune_grid(
   btree_wflow,
   resamples = data_folds,

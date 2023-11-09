@@ -8,21 +8,13 @@ library(doParallel)
 # https://www.r-bloggers.com/2020/06/introducing-modeltime-tidy-time-series-forecasting-using-tidymodels/
 
 
-# Setup parallel processing
-# detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(20)
-registerDoParallel(cores.cluster)
-
-
 # 1. Read in data
 train_lm = readRDS('data/finalized_data/final_train_lm.rds')
 test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
-train_lm_fix = train_lm %>% filter(location == "United States")
-
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
-  train_lm_fix,
+  train_lm,
   initial = 366,
   assess = 30*2,
   skip = 30*4,
@@ -38,7 +30,8 @@ prophet_model = prophet_reg(
     prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
   set_engine('prophet')
 
-prophet_recipe = recipe(new_cases ~ date, data = train_lm_fix)
+prophet_recipe = recipe(new_cases ~ date + location, data = train_lm) %>%
+  step_dummy(all_nominal_predictors())
 # View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
 
 prophet_wflow = workflow() %>%
@@ -51,6 +44,11 @@ prophet_params = prophet_wflow %>%
 prophet_grid = grid_regular(prophet_params, levels = 3)
 
 # 5. Model Tuning
+# Setup parallel processing
+# detectCores(logical = FALSE)
+cores.cluster = makePSOCKcluster(20)
+registerDoParallel(cores.cluster)
+
 prophet_tuned = tune_grid(
   prophet_wflow,
   resamples = data_folds,
@@ -64,6 +62,7 @@ prophet_tuned = tune_grid(
 stopCluster(cores.cluster)
 
 prophet_tuned %>% collect_metrics() %>%
+  relocate(mean) %>%
   group_by(.metric) %>%
   arrange(mean)
 
@@ -71,55 +70,40 @@ prophet_tuned %>% collect_metrics() %>%
 autoplot(prophet_tuned, metric = "rmse")
 
 # 7. Fit Best Model
+# changepoint_num = 25, prior_scale_changepoints = 0.001,
+# prior_scale_seasonality = 100, prior_scale_holidays = 0.001
+
+# changepoint_num = 0, prior_scale_changepoints = 0.001,
+# prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
   seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = tune(), prior_scale_changepoints = tune(),
-  prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
+  changepoint_num = 0, prior_scale_changepoints = 0.001,
+  prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
-prophet_recipe = recipe(new_cases ~ date, data = train_lm_fix)
+prophet_recipe = recipe(new_cases ~ date + location, data = train_lm) %>%
+  step_dummy(all_nominal_predictors())
 prophet_wflow = workflow() %>%
   add_model(prophet_model) %>%
   add_recipe(prophet_recipe)
 
-prophet_fit = fit(prophet_wflow, data = train_lm_fix)
-final_train = train_lm_fix %>%
-  bind_cols(predict(prophet_fit, new_data = train_lm_fix)) %>%
+prophet_fit = fit(prophet_wflow, data = train_lm)
+final_train = train_lm %>%
+  bind_cols(predict(prophet_fit, new_data = train_lm)) %>%
   rename(pred = .pred)
 
 ggplot(final_train) +
   geom_line(aes(date, new_cases), color = 'red') +
   geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15)
+  scale_y_continuous(n.breaks = 15) +
+  facet_wrap(~location, scales = "free_y")
 
 library(ModelMetrics)
-rmse(final_train$new_cases, final_train$pred)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+result = final_train %>%
+  group_by(location) %>%
+  summarise(value = rmse(new_cases, pred)) %>%
+  arrange(location)
+result
 
 
 

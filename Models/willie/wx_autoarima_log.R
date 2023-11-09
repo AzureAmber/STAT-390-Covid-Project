@@ -4,6 +4,9 @@ library(modeltime)
 library(doParallel)
 library(RcppRoll)
 
+# Source
+# https://www.r-bloggers.com/2020/06/introducing-modeltime-tidy-time-series-forecasting-using-tidymodels/
+
 
 # 1. Read in data
 train_lm = readRDS('data/finalized_data/final_train_lm.rds')
@@ -49,7 +52,8 @@ for (i in country_names) {
   data = train_lm %>% filter(location == i)
   complete_data = complete_lm %>% filter(location == i)
   # find linear model by country
-  lm_model = lm(value ~ 0 + time_group + seasonality_group, data)
+  lm_model = lm(value ~ 0 + time_group + seasonality_group,
+                data %>% filter(between(time_group, 13, nrow(data) - 12)))
   x = complete_data %>%
     mutate(
       trend = predict(lm_model, newdata = complete_data),
@@ -142,9 +146,10 @@ autoarima_tuned %>% collect_metrics() %>%
 autoplot(autoarima_tuned, metric = "rmse")
 
 # 8. Fit Best Model
+# p = 3, d = 1, q = 3, D = 0
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 3,
+  non_seasonal_ar = 3, non_seasonal_differences = 1, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -163,24 +168,83 @@ ggplot(final_train) +
   geom_line(aes(date, err), color = 'blue') +
   geom_line(aes(date, pred_err), color = 'red', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) +
-  labs(title = "Error vs Error Prediction")
+  labs(title = "Log Error vs Log Error Prediction")
 # prediction models
-# initial prediction with just trend
+# initial prediction with just linear trend
 ggplot(final_train) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only trend")
-# final prediction with trend + arima error modelling
+  labs(title = "Log prediction with only linear trend")
+ggplot(final_train) +
+  geom_line(aes(date, exp(value)), color = 'blue') +
+  geom_line(aes(date, exp(trend)), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Prediction with only linear trend")
+# final prediction with linear trend + arima error modelling
 ggplot(final_train) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with trend + arima")
+  labs(title = "Log prediction with linear trend + arima")
+ggplot(final_train) +
+  geom_line(aes(date, exp(value)), color = 'blue') +
+  geom_line(aes(date, exp(pred)), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Prediction with linear trend + arima")
 
 library(ModelMetrics)
+# rmse of error prediction
 rmse(final_train$err, final_train$pred_err)
+# rmse of just linear trend
+rmse(final_train$value, final_train$trend)
+rmse(exp(final_train$value), exp(final_train$trend))
+# rmse of linear trend + arima
 rmse(final_train$value, final_train$pred)
+rmse(exp(final_train$value), exp(final_train$pred))
+
+
+
+# Testing set
+final_test = test_lm_fix %>%
+  bind_cols(predict(autoarima_fit, new_data = test_lm_fix)) %>%
+  rename(pred_err = .pred) %>%
+  mutate(pred = trend + pred_err) %>%
+  mutate_if(is.numeric, round, 5)
+# initial prediction with just linear trend
+ggplot(final_test) +
+  geom_line(aes(date, value), color = 'blue') +
+  geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Log prediction with only linear trend")
+ggplot(final_test) +
+  geom_line(aes(date, exp(value)), color = 'blue') +
+  geom_line(aes(date, exp(trend)), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Prediction with only linear trend")
+# final prediction with linear trend + arima error modelling
+ggplot(final_test) +
+  geom_line(aes(date, value), color = 'blue') +
+  geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Log prediction with linear trend + arima")
+ggplot(final_test) +
+  geom_line(aes(date, exp(value)), color = 'blue') +
+  geom_line(aes(date, exp(pred)), color = 'red', linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  labs(title = "Prediction with linear trend + arima")
+
+# rmse of just linear trend
+rmse(final_test$value, final_test$trend)
+rmse(exp(final_test$value), exp(final_test$trend))
+# rmse of linear trend + arima
+rmse(final_test$value, final_test$pred)
+rmse(exp(final_test$value), exp(final_test$pred))
+
+
+
+
+
 
 
 
