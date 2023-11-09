@@ -4,6 +4,7 @@ library(modeltime)
 library(doParallel)
 library(forecast)
 library(lubridate)
+library(RcppRoll)
 
 
 # Source
@@ -326,6 +327,194 @@ print(rmse_tibble) %>%
 # 15 South Korea     74888.
 # 16 India           83228.
 # 17 United States  133255.
+
+
+
+##### IMPROVEMENTS FROM WILL'S CODE
+
+# weekly rolling average
+train_lm <- train_lm %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
+  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
+  arrange(date, .by_group = TRUE) %>%
+  slice(which(row_number() %% 7 == 1)) %>%
+  mutate(seasonality_group = row_number() %% 53) %>%
+  ungroup() %>%
+  mutate(seasonality_group = as.factor(seasonality_group))
+test_lm <- test_lm %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
+  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
+  arrange(date, .by_group = TRUE) %>%
+  slice(which(row_number() %% 7 == 1)) %>%
+  mutate(seasonality_group = row_number() %% 53) %>%
+  ungroup() %>%
+  mutate(seasonality_group = as.factor(seasonality_group))
+complete_lm <- train_lm %>% rbind(test_lm) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
+
+ggplot(train_lm %>% filter(location == "United States"), aes(date, value)) +
+  geom_point()
+
+# 2. Find model trend by country
+train_lm_fix <- NULL
+test_lm_fix <- NULL
+country_names <- unique(train_lm$location)
+for (i in country_names) {
+  data = train_lm %>% filter(location == i)
+  complete_data = complete_lm %>% filter(location == i)
+  # find linear model by country
+  lm_model = lm(value ~ 0 + time(date) + seasonality_group, data)
+  x = complete_data %>%
+    mutate(
+      trend = predict(lm_model, newdata = complete_data),
+      slope = as.numeric(coef(lm_model)["time(date)"]),
+      seasonality_add = trend - slope * time(date),
+      err = value - trend) %>%
+    mutate_if(is.numeric, round, 5)
+  train_lm_fix <<- rbind(train_lm_fix, x %>% filter(date < as.Date("2023-01-01")))
+  test_lm_fix <<- rbind(test_lm_fix, x %>% filter(date >= as.Date("2023-01-01")))
+}
+# plot of original data and trend
+ggplot(train_lm_fix %>% filter(location == "United States")) +
+  geom_line(aes(date, value), color = 'blue') +
+  geom_line(aes(date, trend), color = 'red')+
+  theme_minimal()
+# plot of residual errors
+ggplot(x %>% filter(location == "United States"), aes(date, err)) + geom_line()
+
+
+
+
+# ARIMA Model tuning for errors
+# 3. Create validation sets for every year train + 2 month test with 4-month increments
+train_lm_fix_us <- train_lm_fix %>% filter(location == "United States")
+
+
+# 4. Define model, recipe, and workflow
+arima_model <- arima_reg(
+  seasonal_period = 53,
+  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 0) %>%
+  set_engine('arima')
+
+arima_recipe <- recipe(err ~ date_numeric, data = train_lm_fix_United.States)
+#arima_recipe %>% prep() %>% bake(new_data = NULL)
+
+arima_wflow <- workflow() %>%
+  add_model(arima_model) %>%
+  add_recipe(arima_recipe)
+
+
+# 5. fit model
+
+
+train_lm_fix_United.States$date_numeric <- as.factor(train_lm_fix_United.States$date)
+
+arima_fit_us <- fit(arima_wflow, data = train_lm_fix_United.States)
+
+final_train_us <- train_lm_fix_us %>%
+  bind_cols(pred_err = arima_fit$fit$fit$fit$data$.fitted) %>%
+  mutate(pred = trend + pred_err) %>%
+  mutate_if(is.numeric, round, 5)
+
+# error model
+final_train %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = err, color = "train_actual")) + 
+  geom_line(aes(y = pred_err, color = "train_pred"), linetype = "dashed") + 
+  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
+                     name = "Data", 
+                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
+  labs(title = "Error Model (US)",
+       y = "Value", x = "Date") +
+  theme_minimal() +
+  scale_y_continuous(n.breaks = 15)
+# prediction model
+final_train %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, color = "train_actual")) + 
+  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
+  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
+                     name = "Data", 
+                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
+  labs(title = "ARIMA Model Fit vs Actual Data (US)",
+       y = "New Cases", x = "Date") +
+  theme_minimal() +
+  scale_y_continuous(n.breaks = 15)
+
+library(ModelMetrics)
+ModelMetrics::rmse(final_train$err, final_train$pred_err) 
+ModelMetrics::rmse(final_train$value, final_train$pred)
+
+
+
+
+
+
+
+
+
+
+
+## For all the other countries with stationary data 
+
+
+# first extract countries 
+locations <- unique(train_lm_fix$location)
+
+for (loc in locations) {
+  location_data <- train_lm_fix %>% filter(location == loc)
+  location_name <- paste0("train_lm_fix_", make.names(loc))  # Create the name with "train_" prefix
+  assign(location_name, location_data, envir = .GlobalEnv)
+}
+
+for (loc in locations) {
+  location_data <- test_lm_fix %>% filter(location == loc)
+  location_name <- paste0("test_lm_fix_", make.names(loc))  # Create the name with "train_" prefix
+  assign(location_name, location_data, envir = .GlobalEnv)
+}
+
+
+
+
+
+
+#non-stationary countries, so we remove those
+countries_of_interest <- c("Australia", "France", "Germany",
+                           "Japan", "Sri Lanka", "Turkey")
+
+locations <- setdiff(unique(train_lm$location), countries_of_interest)
+
+fitted_models <- list()
+
+# Loop through each location, fit the model, and store the result
+for (loc in locations) {
+  
+  train_df_name <- paste0("train_lm_fix_", make.names(loc))
+  
+  if (exists(train_df_name)) {
+    
+    train_data <- get(train_df_name)
+    
+    fitted_model <- fit(arima_wflow, data = train_data)
+    
+    fitted_models[[loc]] <- fitted_model
+  }
+}
+
+
+
+
+
+
+
+
+
 
 
 
