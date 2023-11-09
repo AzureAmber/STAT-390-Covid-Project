@@ -59,6 +59,7 @@ for (i in country_names) {
   train_lm_fix <<- rbind(train_lm_fix, x %>% filter(date < as.Date("2023-01-01")))
   test_lm_fix <<- rbind(test_lm_fix, x %>% filter(date >= as.Date("2023-01-01")))
 }
+
 # plot of original data and trend
 ggplot(train_lm_fix %>% filter(location == "United States")) +
   geom_line(aes(date, value), color = 'blue') +
@@ -162,7 +163,7 @@ final_test_germ %>%
   scale_y_continuous(n.breaks = 15)
 
 
-ModelMetrics::rmse(final_test_germ$err, final_test_germ$pred_err) #6628.222
+ModelMetrics::rmse(final_test_germ$err, final_test_germ$pred_err) #21130.1
 ModelMetrics::rmse(final_test_germ$value, final_test_germ$pred)
 
 ModelMetrics::rmse(final_train_germ$err, final_train_germ$pred_err) #6628.222
