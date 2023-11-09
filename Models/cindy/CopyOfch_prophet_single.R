@@ -16,7 +16,8 @@ cores.cluster <- makePSOCKcluster(6)
 registerDoParallel(cores.cluster)
 
 # 1. Read in data
-train_lm <- read_rds('data/finalized_data/final_train_lm.rds') 
+train_lm <- read_rds('data/finalized_data/final_train_lm.rds') |> 
+  rename(ds = date, y = new_cases)
 test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 # 
 # # NOTE: Using United States (Stationary) & Japan (Non-Stationary)
@@ -49,7 +50,7 @@ prophet_model <- prophet_reg() |>
              prior_scale_holidays = tune()) |> # strength of holidays component
   set_mode("regression")
 
-prophet_recipe <- recipe(new_cases ~ date, data = train_lm)
+prophet_recipe <- recipe(y ~ ds, data = train_lm)
 # prophet_recipe_us <- recipe(new_cases ~ date, data = train_lm_us)
 # prophet_recipe_jp <- recipe(new_cases ~ date, data = train_lm_jp)
 
