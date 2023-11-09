@@ -138,9 +138,10 @@ autoarima_tuned %>% collect_metrics() %>%
 autoplot(autoarima_tuned, metric = "rmse")
 
 # 8. Fit Best Model
+# p = 3, d = 0, q 3, D = 0
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 3,
+  non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)

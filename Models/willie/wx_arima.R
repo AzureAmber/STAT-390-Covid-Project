@@ -68,15 +68,33 @@ ggplot(train_lm_fix %>% filter(location == "United States")) +
 # plot of residual errors
 ggplot(x %>% filter(location == "United States"), aes(date, err)) + geom_line()
 
+# 3 ARIMA model for US data
+# Find best arima parameters to model the error after removing trend
+train_lm_fix = train_lm_fix %>% filter(location == "United States")
+test_lm_fix = test_lm_fix %>% filter(location == "United States")
+
+y = ts(data = train_lm_fix %>% select(err), start = 1, frequency = 1)
+plot(y)
+library(tseries)
+adf.test(y)
+# error is stationary
+acf(y, 10)
+# ACF: Tails off with below critical value at lag 5
+acf(y, 10, type = "partial")
+# PACF: Cuts off at lag 2
+# Conclusion: Appears to be either models: AR(2), AR(3), ARMA(2,5), ARMA(3,5)
+
+
+
+
+
+
 
 
 
 
 # ARIMA Model tuning for errors
-# 3. Create validation sets for every year train + 2 month test with 4-month increments
-train_lm_fix = train_lm_fix %>% filter(location == "United States")
-test_lm_fix = test_lm_fix %>% filter(location == "United States")
-
+# 3.1. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
   train_lm_fix,
   initial = 53,
@@ -86,11 +104,10 @@ data_folds = rolling_origin(
 )
 data_folds
 
-# 4. Define model, recipe, and workflow
+# 3.1. Define model, recipe, and workflow
 arima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune(),
-  seasonal_ar = 1, seasonal_differences = tune(), seasonal_ma = 1) %>%
+  non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune()) %>%
   set_engine('arima')
 
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -100,18 +117,17 @@ arima_wflow = workflow() %>%
   add_model(arima_model) %>%
   add_recipe(arima_recipe)
 
-# 5. Setup tuning grid
+# 3.2. Setup tuning grid
 arima_params = arima_wflow %>%
   extract_parameter_set_dials() %>%
   update(
     non_seasonal_differences = non_seasonal_differences(c(0,2)),
     non_seasonal_ar = non_seasonal_ar(c(3, 5)),
-    non_seasonal_ma = non_seasonal_ma(c(3, 5)),
-    seasonal_differences = seasonal_differences(c(0,2))
+    non_seasonal_ma = non_seasonal_ma(c(3, 5))
   )
 arima_grid = grid_regular(arima_params, levels = 3)
 
-# 6. Model Tuning
+# 3.3. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
 cores.cluster = makePSOCKcluster(20)
@@ -134,14 +150,24 @@ arima_tuned %>% collect_metrics() %>%
   group_by(.metric) %>%
   arrange(mean)
 
-# 7. Results
+# 3.4. Results
 autoplot(arima_tuned, metric = "rmse")
 
-# 8. Fit Best Model
+
+
+
+
+
+
+
+
+
+# 4. Fit Best Model
+# BASED ON ACF/PACF PLOT: p = 2, d = 0, q = 0       Other options: (3,0,0)   (2,0,5)   (3,0,5)
+# BASED ON TUNING: p = 3, d = 0, q = 5
 arima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 3,
-  seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
+  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 0) %>%
   set_engine('arima')
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
 arima_wflow = workflow() %>%
