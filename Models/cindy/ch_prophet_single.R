@@ -2,7 +2,7 @@ library(tidyverse)
 library(tidymodels)
 library(modeltime)
 library(doParallel)
-library(prophet)
+# library(prophet)
 
 
 # Source
@@ -19,14 +19,6 @@ registerDoParallel(cores.cluster)
 train_lm <- read_rds('data/finalized_data/final_train_lm.rds') 
 test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 
-# NOTE: Using United States (Stationary) & Japan (Non-Stationary)
-train_lm_us <- train_lm |> 
-  filter(location == "United States") |> 
-  rename(ds = date, y = new_cases)
-
-train_lm_jp <- train_lm |> 
-  filter(location == "Japan") |> 
-  rename(ds = date, y = new_cases)
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
@@ -47,42 +39,31 @@ prophet_model <- prophet_reg() |>
              seasonality_weekly = FALSE,
              seasonality_daily = TRUE, # daily data
              season = "additive", # additive/multiplicative
-             prior_scale_changepoints = tune(), # strength of seasonality model - larger fits more fluctuations
-             prior_scale_holidays = tune()) |> # strength of holidays component
-  set_mode("regression")
+             prior_scale_seasonality = tune(), # strength of seasonality model - larger fits more fluctuations
+             prior_scale_holidays = tune(),# strength of holidays component
+             prior_scale_changepoints = tune()) 
 
-prophet_recipe_us <- recipe(y ~ ds, data = train_lm_us)
-prophet_recipe_jp <- recipe(y ~ ds, data = train_lm_jp)
+prophet_recipe <- recipe(new_cases ~ date + location, data = train_lm) 
+# NOTE TO SELF: needed to include location in recipe as well
+#               since we are predicting on country level
 
-prophet_wflow_us <- workflow() %>%
+# View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
+
+prophet_wflow <- workflow() %>%
   add_model(prophet_model) %>%
-  add_recipe(prophet_recipe_us)
-
-prophet_wflow_jp <- workflow() %>%
-  add_model(prophet_model) %>%
-  add_recipe(prophet_recipe_jp)
+  add_recipe(prophet_recipe)
 
 # 4. Setup tuning grid
 
 # same parameters for both
-prophet_params <- prophet_wflow_us |> 
+prophet_params <- prophet_wflow |> 
   extract_parameter_set_dials()
 
-prophet_grid <- grid_regular(prophet_params, levels = 3)
+prophet_grid <- grid_regular(prophet_params, levels = 3) # 243 combos
 
 # 5. Model Tuning 
-prophet_tuned_us <- tune_grid(
-  prophet_wflow_us,
-  resamples = data_folds,
-  grid = prophet_grid,
-  control = control_grid(save_pred = TRUE,
-                         save_workflow = FALSE,
-                         parallel_over = "everything"),
-  metrics = metric_set(rmse)
-)
-
-prophet_tuned_jp <- tune_grid(
-  prophet_wflow_jp,
+prophet_tuned <- tune_grid(
+  prophet_wflow,
   resamples = data_folds,
   grid = prophet_grid,
   control = control_grid(save_pred = TRUE,
@@ -93,13 +74,41 @@ prophet_tuned_jp <- tune_grid(
 
 stopCluster(cores.cluster)
 
-save(prophet_tuned_us, prophet_tuned_jp, file = "Models/cindy/results/prophet_tuned_1.rda")
+save(prophet_tuned, file = "Models/cindy/results/prophet_tuned_1.rda")
 
 # 6. Review the best results
-show_best(prophet_tuned_us, metric = "rmse")
-show_best(prophet_tuned_jp, metric = "rmse")
-  
-  
-  
-  
+show_best(prophet_tuned, metric = "rmse")
+
+prophet_tuned %>% collect_metrics() %>%
+  relocate(mean) %>%
+  group_by(.metric) %>%
+  arrange(mean)
+
+# NOTE: changepoint_num = 0, changepoint_range = 0.6, prior_scale_changepoint = 100
+#       prior_scale_holidays = 0.001, prior_scale_seasonality = 0.316
+
+autoplot(prophet_tuned, metric = "rmse")
+
+# 7. Finalize workflow and fit
+prophet_wflow_final <- prophet_wflow %>% 
+  finalize_workflow(select_best(prophet_tuned, metric = "rmse"))
+
+prophet_fit <- fit(prophet_wflow_final, data = train_lm)
+
+prophet_pred <- predict(prophet_fit, new_data = train_lm) |>  
+  bind_cols(train_lm) |> 
+  rename(pred = .pred)
+
+ggplot(prophet_pred) + 
+  geom_line(aes(x = date, y = new_cases)) + 
+  geom_line(aes(x = date, y = pred), color = "red") + 
+  facet_wrap(~location) + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Prophet (Single)")
+
+prophet_result <- prophet_pred |> 
+  group_by(location) |> 
+  summarise(value = ModelMetrics::rmse(new_cases, pred)) |> 
+  arrange(location)
   

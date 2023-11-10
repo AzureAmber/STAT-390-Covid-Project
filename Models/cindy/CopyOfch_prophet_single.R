@@ -11,13 +11,12 @@ library(prophet)
 
 
 # Setup parallel processing
-cores <- detectCores()
-cores.cluster <- makePSOCKcluster(6) 
+# cores <- detectCores()
+cores.cluster <- makePSOCKcluster(5) 
 registerDoParallel(cores.cluster)
 
 # 1. Read in data
-train_lm <- read_rds('data/finalized_data/final_train_lm.rds') |> 
-  rename(ds = date, y = new_cases)
+train_lm <- read_rds('data/finalized_data/final_train_lm.rds')
 test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 # 
 # # NOTE: Using United States (Stationary) & Japan (Non-Stationary)
@@ -50,7 +49,8 @@ prophet_model <- prophet_reg() |>
              prior_scale_holidays = tune()) |> # strength of holidays component
   set_mode("regression")
 
-prophet_recipe <- recipe(y ~ ds, data = train_lm)
+prophet_recipe <- recipe(new_cases ~ date, data = train_lm) |> 
+  step_dummy(all_nominal_predictors())
 # prophet_recipe_us <- recipe(new_cases ~ date, data = train_lm_us)
 # prophet_recipe_jp <- recipe(new_cases ~ date, data = train_lm_jp)
 
@@ -115,7 +115,11 @@ save(prophet_tuned, file = "Models/cindy/results/prophet_tuned_1.rda")
 # show_best(prophet_tuned_us, metric = "rmse")
 # show_best(prophet_tuned_jp, metric = "rmse")
   
-  
+# 7. Fit best model
+# prophet_fit <- prophet_model %>%
+#   fit(new_cases ~ date, data = train_lm)
+# 
+# model_fit
   
   
   

@@ -10,7 +10,7 @@ library(prophet)
 
 
 # Setup parallel processing
-cores <- detectCores()
+# cores <- detectCores()
 cores.cluster <- makePSOCKcluster(6) 
 registerDoParallel(cores.cluster)
 
@@ -18,12 +18,6 @@ registerDoParallel(cores.cluster)
 train_lm <- read_rds('data/finalized_data/final_train_lm.rds') 
 test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 
-# NOTE: Using United States (Stationary) & Japan (Non-Stationary)
-train_lm_us <- train_lm |> 
-  filter(location == "United States")
-
-train_lm_jp <- train_lm |> 
-  filter(location == "Japan")
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
@@ -44,32 +38,32 @@ prophet_model <- prophet_reg() |>
              seasonality_weekly = FALSE,
              seasonality_daily = TRUE, # daily data
              season = "additive", # additive/multiplicative
-             prior_scale_changepoints = tune(), # strength of seasonality model - larger fits more fluctuations
-             prior_scale_holidays = tune()) |> # strength of holidays component
-  set_mode("regression")
+             prior_scale_seasonality = tune(), # strength of seasonality model - larger fits more fluctuations
+             prior_scale_holidays = tune(),# strength of holidays component
+             prior_scale_changepoints = tune()) 
 
-prophet_recipe_us <- recipe(new_cases ~ ., data = train_lm_us)
-prophet_recipe_jp <- recipe(new_cases ~ ., data = train_lm_jp)
+prophet_recipe <- recipe(new_cases ~ ., data = train_lm) |> 
+  step_dummy(all_nominal_predictors()) %>% 
+  # trying additional step
+  step_normalize(all_numeric_predictors())
 
-prophet_wflow_us <- workflow() %>%
+# View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
+
+prophet_wflow <- workflow() %>%
   add_model(prophet_model) %>%
-  add_recipe(prophet_recipe_us)
-
-prophet_wflow_jp <- workflow() %>%
-  add_model(prophet_model) %>%
-  add_recipe(prophet_recipe_jp)
+  add_recipe(prophet_recipe)
 
 # 4. Setup tuning grid
 
 # same parameters for both
-prophet_params <- prophet_wflow_us |> 
+prophet_params <- prophet_wflow |> 
   extract_parameter_set_dials()
 
 prophet_grid <- grid_regular(prophet_params, levels = 3)
 
 # 5. Model Tuning 
-prophet_tuned_us <- tune_grid(
-  prophet_wflow_us,
+prophet_multi_tuned <- tune_grid(
+  prophet_wflow,
   resamples = data_folds,
   grid = prophet_grid,
   control = control_grid(save_pred = TRUE,
@@ -78,25 +72,10 @@ prophet_tuned_us <- tune_grid(
   metrics = metric_set(rmse)
 )
 
-prophet_tuned_jp <- tune_grid(
-  prophet_wflow_jp,
-  resamples = data_folds,
-  grid = prophet_grid,
-  control = control_grid(save_pred = TRUE,
-                         save_workflow = FALSE,
-                         parallel_over = "everything"),
-  metrics = metric_set(rmse)
-)
 
 stopCluster(cores.cluster)
 
-save(prophet_tuned_us, prophet_tuned_jp, file = "Models/cindy/results/prophet_tuned_1.rda")
+save(prophet_multi_tuned, file = "Models/cindy/results/prophet_multi_tuned_1.rda")
 
 # 6. Review the best results
-show_best(prophet_tuned_us, metric = "rmse")
-show_best(prophet_tuned_jp, metric = "rmse")
-
-
-
-
-
+# show_best(prophet_multi_tuned, metric = "rmse")
