@@ -132,7 +132,7 @@ arima_grid = grid_regular(arima_params, levels = 3)
 # 3.3. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(20)
+cores.cluster = makePSOCKcluster(4)
 registerDoParallel(cores.cluster)
 
 arima_tuned = tune_grid(
