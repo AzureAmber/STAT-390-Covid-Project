@@ -42,8 +42,8 @@ ggplot(train_lm %>% filter(location == "South Korea"), aes(date, value)) +
   geom_point()
 
 # 2. Find model trend by country
-train_lm_fix = NULL
-test_lm_fix = NULL
+train_lm_fix_init = NULL
+test_lm_fix_init = NULL
 country_names = unique(train_lm$location)
 for (i in country_names) {
   data = train_lm %>% filter(location == i)
@@ -55,23 +55,23 @@ for (i in country_names) {
     mutate(
       trend = predict(lm_model, newdata = complete_data),
       slope = as.numeric(coef(lm_model)["time_group"]),
-      seasonality_add = trend - slope * time(date),
+      seasonality_add = trend - slope * time_group,
       err = value - trend) %>%
     mutate_if(is.numeric, round, 5)
-  train_lm_fix <<- rbind(train_lm_fix, x %>% filter(date < as.Date("2023-01-01")))
-  test_lm_fix <<- rbind(test_lm_fix, x %>% filter(date >= as.Date("2023-01-01")))
+  train_lm_fix_init <<- rbind(train_lm_fix_init, x %>% filter(date < as.Date("2023-01-01")))
+  test_lm_fix_init <<- rbind(test_lm_fix_init, x %>% filter(date >= as.Date("2023-01-01")))
 }
 # plot of original data and trend
-ggplot(train_lm_fix %>% filter(location == "United States")) +
+ggplot(train_lm_fix_init %>% filter(location == "United States")) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, trend), color = 'red')
 # plot of residual errors
-ggplot(x %>% filter(location == "United States"), aes(date, err)) + geom_line()
+ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)) + geom_line()
 
 # 3 ARIMA model for US data
 # Find best arima parameters to model the error after removing trend
-train_lm_fix = train_lm_fix %>% filter(location == "United States")
-test_lm_fix = test_lm_fix %>% filter(location == "United States")
+train_lm_fix = train_lm_fix_init %>% filter(location == "Australia")
+test_lm_fix = test_lm_fix_init %>% filter(location == "Australia")
 
 y = ts(data = train_lm_fix %>% select(err), start = 1, frequency = 1)
 plot(y)
@@ -107,7 +107,8 @@ data_folds
 # 3.1. Define model, recipe, and workflow
 arima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune()) %>%
+  non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune(),
+  seasonal_ar = 1, seasonal_differences = tune(), seasonal_ma = 1) %>%
   set_engine('arima')
 
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -123,7 +124,8 @@ arima_params = arima_wflow %>%
   update(
     non_seasonal_differences = non_seasonal_differences(c(0,2)),
     non_seasonal_ar = non_seasonal_ar(c(3, 5)),
-    non_seasonal_ma = non_seasonal_ma(c(3, 5))
+    non_seasonal_ma = non_seasonal_ma(c(3, 5)),
+    seasonal_differences = seasonal_differences(c(0,2))
   )
 arima_grid = grid_regular(arima_params, levels = 3)
 
@@ -163,11 +165,12 @@ autoplot(arima_tuned, metric = "rmse")
 
 
 # 4. Fit Best Model
-# BASED ON ACF/PACF PLOT: p = 2, d = 0, q = 0       Other options: (3,0,0)   (2,0,5)   (3,0,5)
-# BASED ON TUNING: p = 3, d = 0, q = 5
+# Argentina (5,1,4,0)
+# Australia (5,1,4,0)
 arima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 0) %>%
+  non_seasonal_ar = 5, non_seasonal_differences = 1, non_seasonal_ma = 4,
+  seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('arima')
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
 arima_wflow = workflow() %>%
@@ -221,13 +224,13 @@ ggplot(final_test) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with only linear trend")
+  labs(title = "Prediction with only linear trend")
 # final prediction with linear trend + arima error modelling
 ggplot(final_test) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with linear trend + arima")
+  labs(title = "Prediction with linear trend + arima")
 
 # rmse of just linear trend
 rmse(final_test$value, final_test$trend)

@@ -75,11 +75,10 @@ btree_tuned %>% collect_metrics() %>%
 autoplot(btree_tuned, metric = "rmse")
 
 # 7. Fit Best Model
-# Increase tree_depth, learn_rate, mtry
-# Decrease min_n
+# mtry = 15, min_n = 5, tree_depth = 20, learn_rate = 0.0178
 btree_model = boost_tree(
   trees = 1000, tree_depth = 20,
-  learn_rate = 0.32, min_n = 5, mtry = 15) %>%
+  learn_rate = 0.0178, min_n = 5, mtry = 15) %>%
   set_engine('xgboost') %>%
   set_mode('regression')
 btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
@@ -109,4 +108,11 @@ results = final_train %>%
   arrange(location)
 
 
+final_test = test_tree %>%
+  bind_cols(predict(btree_fit, new_data = test_tree)) %>%
+  rename(pred = .pred)
+results_test = final_test %>%
+  group_by(location) %>%
+  summarise(value = rmse(new_cases, pred)) %>%
+  arrange(location)
 

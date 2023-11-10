@@ -70,9 +70,6 @@ prophet_tuned %>% collect_metrics() %>%
 autoplot(prophet_tuned, metric = "rmse")
 
 # 7. Fit Best Model
-# changepoint_num = 25, prior_scale_changepoints = 0.001,
-# prior_scale_seasonality = 100, prior_scale_holidays = 0.001
-
 # changepoint_num = 0, prior_scale_changepoints = 0.001,
 # prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001
 prophet_model = prophet_reg(
@@ -107,6 +104,13 @@ result
 
 
 
+final_test = test_lm %>%
+  bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
+  rename(pred = .pred)
+result_test = final_test %>%
+  group_by(location) %>%
+  summarise(value = rmse(new_cases, pred)) %>%
+  arrange(location)
 
 
 

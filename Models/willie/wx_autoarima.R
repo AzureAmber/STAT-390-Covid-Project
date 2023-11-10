@@ -42,8 +42,8 @@ ggplot(train_lm %>% filter(location == "South Korea"), aes(date, value)) +
   geom_point()
 
 # 2. Find model trend by country
-train_lm_fix = NULL
-test_lm_fix = NULL
+train_lm_fix_init = NULL
+test_lm_fix_init = NULL
 country_names = unique(train_lm$location)
 for (i in country_names) {
   data = train_lm %>% filter(location == i)
@@ -55,18 +55,18 @@ for (i in country_names) {
     mutate(
       trend = predict(lm_model, newdata = complete_data),
       slope = as.numeric(coef(lm_model)["time_group"]),
-      seasonality_add = trend - slope * time(date),
+      seasonality_add = trend - slope * time_group,
       err = value - trend) %>%
     mutate_if(is.numeric, round, 5)
-  train_lm_fix <<- rbind(train_lm_fix, x %>% filter(date < as.Date("2023-01-01")))
-  test_lm_fix <<- rbind(test_lm_fix, x %>% filter(date >= as.Date("2023-01-01")))
+  train_lm_fix_init <<- rbind(train_lm_fix_init, x %>% filter(date < as.Date("2023-01-01")))
+  test_lm_fix_init <<- rbind(test_lm_fix_init, x %>% filter(date >= as.Date("2023-01-01")))
 }
 # plot of original data and trend
-ggplot(train_lm_fix %>% filter(location == "United States")) +
+ggplot(train_lm_fix_init %>% filter(location == "United States")) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, trend), color = 'red')
 # plot of residual errors
-ggplot(x %>% filter(location == "United States"), aes(date, err)) + geom_line()
+ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)) + geom_line()
 
 
 
@@ -74,8 +74,8 @@ ggplot(x %>% filter(location == "United States"), aes(date, err)) + geom_line()
 
 # ARIMA Model tuning for errors
 # 3. Create validation sets for every year train + 2 month test with 4-month increments
-train_lm_fix = train_lm_fix %>% filter(location == "United States")
-test_lm_fix = test_lm_fix %>% filter(location == "United States")
+train_lm_fix = train_lm_fix_init %>% filter(location == "Argentina")
+test_lm_fix = test_lm_fix_init %>% filter(location == "Argentina")
 
 data_folds = rolling_origin(
   train_lm_fix,
@@ -138,7 +138,7 @@ autoarima_tuned %>% collect_metrics() %>%
 autoplot(autoarima_tuned, metric = "rmse")
 
 # 8. Fit Best Model
-# p = 3, d = 0, q 3, D = 0
+# Argentina (3,0,3,0)
 autoarima_model = arima_reg(
   seasonal_period = 53,
   non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 3,
