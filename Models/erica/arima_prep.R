@@ -104,7 +104,7 @@ manual_model_us <- Arima(train_us$new_cases, order = c(0,0,0))
 print(AIC(manual_model_us)) #28834.8
 
 auto_model_us <- auto.arima(train_us$new_cases)
-print(AIC(auto_model)) #26758.13
+print(AIC(auto_model_us)) #26758.13
 
 
 manual_model_germ <- Arima(train_germ$new_cases, order = c(0,0,0))
