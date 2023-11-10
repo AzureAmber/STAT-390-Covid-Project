@@ -16,6 +16,19 @@ execute:
 
 ##Progress/Accomplishments
 
+-   model building and tuning for all 6:
+    -   **arima** & **auto-arima**:
+        -   check countries that have stationary data (17 countries) vs. non-stationary data (6 countries)
+        -   use arima_reg() initially to tune the model for stationary rep (U.S.) and non-stationary rep (Germany) but prediction is bad (a straight line) even after using first-difference to remove trend;
+        -   manual grid search gives p, d, p order combination of (0, 0, 0), suggesting there's no pattern; automatic grid search using auto.arima is giving better combination in terms of lower AIC
+        -   pivot to use linear model first to model the trend and use arima to model the predicted error
+    -   **prophet single** & **multiple**: both works well! tune the model using U.S. data and apply the model to rest of 22 countries
+    -   **xgboost**: the model works well but just need to further improve the hyperparameters and maybe reduce the tree to reduce running time
+    -   **lstm**: have a rough outline but still exploring how the model works
+-   We'll be able to present at least 5 out of 6 models in the next Tuesday's presentation
+
 ##Challenges
 
 ##Next Steps
+
+-   continue working on hyperparameter tuning for xgboost and model building for lstm
