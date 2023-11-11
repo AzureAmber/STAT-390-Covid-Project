@@ -34,8 +34,7 @@ test_lm <- complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 
-ggplot(train_lm %>% filter(location == "United States"), aes(date, value)) +
-  geom_point()
+
 
 # 2. Find model trend by country
 train_lm_fix <- NULL
@@ -58,12 +57,7 @@ for (i in country_names) {
   test_lm_fix <<- rbind(test_lm_fix, x %>% filter(date >= as.Date("2023-01-01")))
 }
 
-# plot of original data and trend
-ggplot(train_lm_fix_init %>% filter(location == "United States")) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red')
-# plot of residual errors
-ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)) + geom_line()
+
 
 # save train and test data by country in separate dataframe
 
@@ -83,6 +77,7 @@ for (loc in country_names) {
 }
 
 
+# plot of original data and trend
 ggplot(train_lm_fix_United.States) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, trend), color = 'red')
