@@ -16,27 +16,27 @@ execute:
 
 ## Progress/Accomplishments
 
--   Each member worked on model building and hyperparameter tuning [`Models/`]. Below is our progress on the 6 models: 
+-   Each member worked on model building and hyperparameter tuning \[`Models/`\]. Below is our progress on the 6 models:
     -   **arima** & **auto-arima**:
-        -   Checked countries that have stationary data (17 countries) vs. non-stationary data (6 countries) [`Models/erica/lm_stationary_check.R`]
+        -   Checked countries that have stationary data (17 countries) vs. non-stationary data (6 countries) \[`Models/erica/lm_stationary_check.R`\]
         -   Used `arima_reg()` initially to tune the model for stationary rep (U.S.) and non-stationary rep (Germany) but prediction is bad (a straight line) even after using first-difference to remove trend;
-        -   Did a manual grid search --> gives p, d, p order combination of (0, 0, 0), suggesting there's no pattern; automatic grid search using auto.arima is giving better combination in terms of lower AIC
-        - Also looked at ACF and PACF plots --> still gave a white noise model of (0, 0, 0)
-        - Pivoted by using linear model first to model the trend and arima to model the predicted error
-    -   **prophet single** & **prophet multiple**: 
-        - Both are completed and works well! We will tune the model using U.S. data and apply the model to rest of 22 countries. 
-    -   **xgboost**: 
+        -   Did a manual grid search --\> gives p, d, p order combination of (0, 0, 0), suggesting there's no pattern; automatic grid search using auto.arima is giving better combination in terms of lower AIC
+        -   Also looked at ACF and PACF plots --\> still gave a white noise model of (0, 0, 0)
+        -   Pivoted by using linear model first to model the trend and arima to model the predicted error
+    -   **prophet single** & **prophet multiple**:
+        -   Both are completed and works well! We will tune the model using U.S. data and apply the model to rest of 22 countries.
+    -   **xgboost**:
         -   This is one of the better performing models. We may need to further improve the hyperparameters and reduce the number of trees to shorten running time.
     -   **lstm**:
-        - Have a rough outline of model specification, recipe, and tuning but still have not ran the model.
-        
+        -   Have a rough outline of model specification, recipe, and tuning but still have not ran the model.
 
 ## Challenges
-- Long run times when tuning hyperparameters 
-  - Even with parallel processing, it can take anywhere from 1-12 hours depending on model and cores on device
-  - Sometimes the background job will show "Succeeded" but return "All Models Failed."
-- Trying to troubleshoot and improve arima model, as explained above
-- Difference in LSTM model (adding layers) compared to the other models is a bit confusing so we need to explore further
+
+-   Long run times when tuning hyperparameters
+    -   Even with parallel processing, it can take anywhere from 1-12 hours depending on model and cores on device
+    -   Sometimes the background job will show "Succeeded" but return "All Models Failed."
+-   Trying to troubleshoot and improve arima model, as explained above
+-   Difference in LSTM model (adding layers) compared to the other models is a bit confusing so we need to explore further
 
 ## Next Steps
 

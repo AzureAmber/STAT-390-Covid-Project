@@ -59,6 +59,12 @@ for (i in country_names) {
 }
 
 # plot of original data and trend
+ggplot(train_lm_fix_init %>% filter(location == "United States")) +
+  geom_line(aes(date, value), color = 'blue') +
+  geom_line(aes(date, trend), color = 'red')
+# plot of residual errors
+ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)) + geom_line()
+
 # save train and test data by country in separate dataframe
 
 
@@ -142,7 +148,7 @@ arima_grid <- grid_regular(arima_params, levels = 3)
 # 6. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster <- makePSOCKcluster(4)
+cores.cluster <- makePSOCKcluster(6)
 registerDoParallel(cores.cluster)
 
 arima_tuned <- tune_grid(
@@ -224,7 +230,7 @@ ModelMetrics::rmse(final_train_us$value, final_train_us$pred) #20872.61
 
 # Testing set
 final_test_us <- test_lm_fix %>%
-  bind_cols(predict(arima_fit_us, new_data = test_lm_fix)) %>%
+  bind_cols(predict(arima_fit_us, new_data = test_lm_fix_United.States)) %>%
   rename(pred_err = .pred) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
