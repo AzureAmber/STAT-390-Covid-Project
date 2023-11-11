@@ -6,6 +6,8 @@ library(forecast)
 library(lubridate)
 library(RcppRoll)
 
+tidymodels_prefer()
+
 # 1. Read in data
 train_lm <- readRDS('data/finalized_data/final_train_lm.rds')
 test_lm <- readRDS('data/finalized_data/final_test_lm.rds')
@@ -57,10 +59,25 @@ for (i in country_names) {
 }
 
 # plot of original data and trend
-train_lm_fix_us <- train_lm_fix %>% filter(location == "United States")
-test_lm_fix_us <- test_lm_fix %>% filter(location == "United States")
+# save train and test data by country in separate dataframe
 
-ggplot(train_lm_fix_us) +
+
+# first extract countries 
+
+for (loc in country_names) {
+  location_data <- train_lm_fix %>% filter(location == loc)
+  location_name <- paste0("train_lm_fix_", make.names(loc))  # Create the name with "train_" prefix
+  assign(location_name, location_data, envir = .GlobalEnv)
+}
+
+for (loc in country_names) {
+  location_data <- test_lm_fix %>% filter(location == loc)
+  location_name <- paste0("test_lm_fix_", make.names(loc))  # Create the name with "train_" prefix
+  assign(location_name, location_data, envir = .GlobalEnv)
+}
+
+
+ggplot(train_lm_fix_United.States) +
   geom_line(aes(date, value), color = 'blue') +
   geom_line(aes(date, trend), color = 'red')
 
@@ -71,11 +88,8 @@ x %>% filter(location == "United States") %>%
 
 
 
-
 # ARIMA Model tuning for errors
 # 3. Create validation sets for every year train + 2 month test with 4-month increments
-train_lm_fix_us <- train_lm_fix %>% filter(location == "United States")
-test_lm_fix_us <- test_lm_fix %>% filter(location == "United States")
 
 data_folds <- rolling_origin(
   train_lm_fix,
@@ -91,19 +105,20 @@ data_folds <- rolling_origin(
 
 ## determine p, d, q by looking at auto.arima()
 
-train_lm_fix_us %>% 
+train_lm_fix_United.States %>% 
   select(err) %>% 
   ts() %>% 
   auto.arima() %>% 
   summary()  # 2,0,2
 
 arima_model <- arima_reg(
-  seasonal_period = "auto",
+  seasonal_period = 53,
   non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 2,
   seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
   set_engine('arima')
 
-arima_recipe <- recipe(err ~ date, data = train_lm_fix_us)
+arima_recipe <- recipe(err ~ date, data = train_lm_fix_United.States)
+
 
 #arima_recipe %>% prep() %>% bake(new_data = NULL)
 
@@ -163,9 +178,9 @@ dev.off()
 arima_wflow_tuned <- arima_wflow %>%
   finalize_workflow(select_best(arima_tuned, metric = "rmse"))
 
-arima_fit_us <- fit(arima_wflow_tuned, train_lm_fix_us)
+arima_fit_us <- fit(arima_wflow_tuned, train_lm_fix_United.States)
 
-final_train_us <- train_lm_fix_us %>%
+final_train_us <- train_lm_fix_United.States %>%
   bind_cols(pred_err = arima_fit_us$fit$fit$fit$data$.fitted) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
@@ -204,7 +219,7 @@ ModelMetrics::rmse(final_train_us$err, final_train_us$pred_err)
 # rmse of just linear trend
 ModelMetrics::rmse(final_train_us$value, final_train_us$trend)
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_us$value, final_train_us$pred) #20987.67
+ModelMetrics::rmse(final_train_us$value, final_train_us$pred) #20872.61
 
 
 # Testing set
@@ -246,7 +261,63 @@ final_test_us %>%
 # rmse of just linear trend
 ModelMetrics::rmse(final_test_us$value, final_test_us$trend)
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_us$value, final_test_us$pred)
+ModelMetrics::rmse(final_test_us$value, final_test_us$pred) #56240.91
+
+
+#### fit train and predict test using the same model
+
+# for loop to fit train and predict test
+
+# Initialize an empty tibble to store RMSE results
+rmse_results <- tibble(country = character(), 
+                       rmse_pred_train = numeric(), 
+                       rmse_pred_test = numeric())
+
+
+for (location in country_names) {
+  # Construct data frame names
+  train_data_name <- paste0("train_lm_fix_", location)
+  test_data_name <- paste0("test_lm_fix_", location)
+  
+  # Fit the ARIMA model
+  arima_fit <- fit(arima_wflow_tuned, get(train_data_name))
+  
+  # Prepare training data
+  final_train <- get(train_data_name) %>%
+    bind_cols(pred_err = arima_fit$fit$fit$fit$data$.fitted) %>%
+    mutate(pred = trend + pred_err) %>%
+    mutate_if(is.numeric, round, 5)
+  
+  
+  # RMSE calculations for training data
+  rmse_err_train <- ModelMetrics::rmse(final_train$err, final_train$pred_err)
+  rmse_trend_train <- ModelMetrics::rmse(final_train$value, final_train$trend)
+  rmse_pred_train <- ModelMetrics::rmse(final_train$value, final_train$pred)
+  
+  # Prepare testing data
+  final_test <- get(test_data_name) %>%
+    bind_cols(predict(arima_fit, new_data = get(test_data_name))) %>%
+    rename(pred_err = .pred) %>%
+    mutate(pred = trend + pred_err) %>%
+    mutate_if(is.numeric, round, 5)
+  
+  # RMSE calculations for testing data
+  rmse_trend_test <- ModelMetrics::rmse(final_test$value, final_test$trend)
+  rmse_pred_test <- ModelMetrics::rmse(final_test$value, final_test$pred)
+  
+  # Append results to the tibble
+  rmse_results <- rbind(rmse_results, 
+                        tibble(country = location, 
+                               rmse_pred_train = rmse_pred_train, 
+                               rmse_pred_test = rmse_pred_test))
+  
+ 
+}
+
+print(rmse_results)   
+
+
+#write.csv(rmse_results, "rmse_results.csv", row.names = FALSE)
 
 
 
