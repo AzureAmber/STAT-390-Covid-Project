@@ -1,9 +1,14 @@
 library(tidyverse)
 library(prophet)
 library(modeltime)
-library(doParallel)
 library(RcppRoll)
-library(dplyr)
+library(tidymodels)
+library(doParallel)
+library(forecast)
+library(lubridate)
+
+
+
 
 
 ##### just throw in original data, no need to preprocessing
@@ -29,6 +34,8 @@ data_folds <- rolling_origin(
 )
 #data_folds
 
+
+
 # 3. Define model, recipe, and workflow
 prophet_model <- prophet_reg(
   growth = "linear", season = "additive",
@@ -53,7 +60,7 @@ prophet_grid <- grid_regular(prophet_params, levels = 3)
 # 5. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(5)
+cores.cluster = makePSOCKcluster(4)
 registerDoParallel(cores.cluster)
 
 prophet_tuned <- tune_grid(
@@ -63,7 +70,7 @@ prophet_tuned <- tune_grid(
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
-  metrics = metric_set(rmse)
+  metrics = metric_set(yardstick::rmse)
 )
 
 stopCluster(cores.cluster)
@@ -98,12 +105,12 @@ ggplot(final_train) +
   facet_wrap(~location, scales = "free_y")
 
 library(ModelMetrics)
-result <- final_train %>%
+result_train <- final_train %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%
   arrange(location)
 
-print(result)
+print(result_train)
 
 
 
