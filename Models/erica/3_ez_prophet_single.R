@@ -52,6 +52,8 @@ prophet_wflow <- workflow() %>%
   add_model(prophet_model) %>%
   add_recipe(prophet_recipe)
 
+save(prophet_wflow, file = "Models/erica/results/prophet_single_wflow.rda")
+
 # 4. Setup tuning grid
 prophet_params <- prophet_wflow %>%
   extract_parameter_set_dials()
@@ -75,14 +77,23 @@ prophet_tuned <- tune_grid(
 
 stopCluster(cores.cluster)
 
+save(prophet_tuned, file = "Models/erica/results/prophet_single_tuned.rda")
+
 prophet_tuned %>% collect_metrics() %>%
   relocate(mean) %>%
   group_by(.metric) %>%
   arrange(mean)
 
 # 6. Results
-autoplot(prophet_tuned, metric = "rmse")
-show_best(prophet_tune, metric = "rmse")
+prophetsingle_autoplot <- autoplot(prophet_tuned, metric = "rmse")
+show_best(prophet_tuned, metric = "rmse")
+
+#save autoplot
+jpeg("Models/erica/results/prophet_single_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
+# Print the plot to the device
+print(prophetsingle_autoplot)
+# Close the device
+dev.off()
 
 # 7. Fit Best Model
 # changepoint_num = 0, prior_scale_changepoints = 0.001,
