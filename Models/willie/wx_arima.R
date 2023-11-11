@@ -70,8 +70,8 @@ ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)
 
 # 3 ARIMA model for US data
 # Find best arima parameters to model the error after removing trend
-train_lm_fix = train_lm_fix_init %>% filter(location == "Australia")
-test_lm_fix = test_lm_fix_init %>% filter(location == "Australia")
+train_lm_fix = train_lm_fix_init %>% filter(location == "Morocco")
+test_lm_fix = test_lm_fix_init %>% filter(location == "Morocco")
 
 y = ts(data = train_lm_fix %>% select(err), start = 1, frequency = 1)
 plot(y)
@@ -106,7 +106,7 @@ data_folds
 
 # 3.1. Define model, recipe, and workflow
 arima_model = arima_reg(
-  seasonal_period = 53,
+  seasonal_period = "auto",
   non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune(),
   seasonal_ar = 1, seasonal_differences = tune(), seasonal_ma = 1) %>%
   set_engine('arima')
@@ -132,7 +132,7 @@ arima_grid = grid_regular(arima_params, levels = 3)
 # 3.3. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(4)
+cores.cluster = makePSOCKcluster(20)
 registerDoParallel(cores.cluster)
 
 arima_tuned = tune_grid(
@@ -142,7 +142,7 @@ arima_tuned = tune_grid(
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
-  metrics = metric_set(rmse)
+  metrics = metric_set(yardstick::rmse)
 )
 
 stopCluster(cores.cluster)
@@ -166,10 +166,21 @@ autoplot(arima_tuned, metric = "rmse")
 
 # 4. Fit Best Model
 # Argentina (5,1,4,0)
-# Australia (5,1,4,0)
+# Australia (5,1,3,0)
+# Canada (3,0,4,2)
+# Colombia (5,1,3,0)
+# Ecuador (5,0,4,0)
+# Ethiopia (3,1,3,0)
+# France (4,1,3,0)
+# Germany (5,0,3,1)
+# India (5,0,5,0)
+# Italy (3,1,4,0)
+# Japan (5,1,4,0)
+# Mexico (5,1,4,0)
+# Morocco (4,0,3,0)
 arima_model = arima_reg(
-  seasonal_period = 53,
-  non_seasonal_ar = 5, non_seasonal_differences = 1, non_seasonal_ma = 4,
+  seasonal_period = "auto",
+  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('arima')
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
