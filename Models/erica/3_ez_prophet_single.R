@@ -52,6 +52,8 @@ prophet_wflow <- workflow() %>%
   add_model(prophet_model) %>%
   add_recipe(prophet_recipe)
 
+save(prophet_wflow, file = "Models/erica/results/prophet_single_wflow.rda")
+
 # 4. Setup tuning grid
 prophet_params <- prophet_wflow %>%
   extract_parameter_set_dials()
@@ -74,6 +76,8 @@ prophet_tuned <- tune_grid(
 )
 
 stopCluster(cores.cluster)
+
+save(prophet_tuned, file = "Models/erica/results/prophet_single_tuned.rda")
 
 prophet_tuned %>% collect_metrics() %>%
   relocate(mean) %>%
