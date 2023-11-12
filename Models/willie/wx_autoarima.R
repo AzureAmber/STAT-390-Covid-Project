@@ -74,8 +74,8 @@ ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)
 
 # ARIMA Model tuning for errors
 # 3. Create validation sets for every year train + 2 month test with 4-month increments
-train_lm_fix = train_lm_fix_init %>% filter(location == "Argentina")
-test_lm_fix = test_lm_fix_init %>% filter(location == "Argentina")
+train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
+test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
 
 data_folds = rolling_origin(
   train_lm_fix,
@@ -124,7 +124,7 @@ autoarima_tuned = tune_grid(
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
-  metrics = metric_set(rmse)
+  metrics = metric_set(yardstick::rmse)
 )
 
 stopCluster(cores.cluster)
@@ -139,6 +139,28 @@ autoplot(autoarima_tuned, metric = "rmse")
 
 # 8. Fit Best Model
 # Argentina (3,0,3,0)
+# Australia (3,1,3,0)
+# Canada (3,0,3,0)
+# Colombia (3,0,3,0)
+# Ecuador (4,0,3,0)
+# Ethiopia (3,0,3,0)
+# France (3,1,3,0)
+# Germant (3,0,3,0)
+# India (3,0,3,0)
+# Italy (3,1,3,0)
+# Japan (3,0,3,0)
+# Mexico (4,0,3,0)
+# Morocco (3,0,3,0)
+# Pakistan (5,0,3,0)
+# Philippines (3,0,3,0)
+# Russia (5,0,3,0)
+# Saudi Arabia (5,0,3,0)
+# South Africa (3,0,3,0)
+# South Korea (3,1,3,0)
+# Sri Lanka (4,0,3,0)
+# Turkey (3,1,3,0)
+# United Kingdom (3,1,3,0)
+# United States (3,0,3,0)
 autoarima_model = arima_reg(
   seasonal_period = 53,
   non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 3,
