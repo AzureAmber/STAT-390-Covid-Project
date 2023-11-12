@@ -15,12 +15,13 @@ cores <- detectCores()
 cores.cluster <- makePSOCKcluster(6) 
 registerDoParallel(cores.cluster)
 
-# 1. Read in data
+# 1. Read in data ----
 train_lm <- read_rds('data/finalized_data/final_train_lm.rds') 
 test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 
 
-# 2. Create validation sets for every year train + 2 month test with 4-month increments
+# 2. Create validation sets ----
+# for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
   train_lm,
   initial = 366,
@@ -29,7 +30,7 @@ data_folds <- rolling_origin(
   cumulative = FALSE
 )
 
-# 3. Define model, recipe, and workflow
+# 3. Define model, recipe, and workflow ----
 prophet_model <- prophet_reg() |> 
   set_engine("prophet", 
              growth = "linear", # linear/logistic 
@@ -53,7 +54,7 @@ prophet_wflow <- workflow() %>%
   add_model(prophet_model) %>%
   add_recipe(prophet_recipe)
 
-# 4. Setup tuning grid
+# 4. Setup tuning grid ----
 
 # same parameters for both
 prophet_params <- prophet_wflow |> 
@@ -61,7 +62,7 @@ prophet_params <- prophet_wflow |>
 
 prophet_grid <- grid_regular(prophet_params, levels = 3) # 243 combos
 
-# 5. Model Tuning 
+# 5. Model Tuning ----
 prophet_tuned <- tune_grid(
   prophet_wflow,
   resamples = data_folds,
@@ -76,20 +77,24 @@ stopCluster(cores.cluster)
 
 save(prophet_tuned, file = "Models/cindy/results/prophet_tuned_1.rda")
 
-# 6. Review the best results
+# 6. Review the best results ----
 show_best(prophet_tuned, metric = "rmse")
 
-prophet_tuned %>% collect_metrics() %>%
-  relocate(mean) %>%
-  group_by(.metric) %>%
-  arrange(mean)
+# changepoint_num changepoint_range prior_scale_seasonal…¹ prior_scale_holidays prior_scale_changepo…² .metric .estimator   mean     n
+# <int>             <dbl>                  <dbl>                <dbl>                  <dbl> <chr>   <chr>       <dbl> <int>
+# 1               0              0.6                     100                0.001                  0.316 rmse    standard   29901.   205
+# 2               0              0.75                    100                0.001                  0.316 rmse    standard   29901.   205
+# 3               0              0.9                     100                0.001                  0.316 rmse    standard   29901.   205
+# 4               0              0.6                     100                0.316                  0.316 rmse    standard   29901.   205
+# 5               0              0.75                    100                0.316                  0.316 rmse    standard   29901.   205
+
 
 # NOTE: changepoint_num = 0, changepoint_range = 0.6, prior_scale_changepoint = 100
 #       prior_scale_holidays = 0.001, prior_scale_seasonality = 0.316
 
 autoplot(prophet_tuned, metric = "rmse")
 
-# 7. Finalize workflow and fit
+# 7. Finalize workflow and fit ----
 prophet_wflow_final <- prophet_wflow %>% 
   finalize_workflow(select_best(prophet_tuned, metric = "rmse"))
 
@@ -111,4 +116,7 @@ prophet_result <- prophet_pred |>
   group_by(location) |> 
   summarise(value = ModelMetrics::rmse(new_cases, pred)) |> 
   arrange(location)
-  
+
+# x <- prophet_result |> 
+#   pivot_wider(names_from = location, values_from = value)
+# view(x)  
