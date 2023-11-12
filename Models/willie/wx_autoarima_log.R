@@ -82,8 +82,8 @@ ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)
 
 # ARIMA Model tuning for errors
 # 3. Create validation sets for every year train + 2 month test with 4-month increments
-train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
-test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
+train_lm_fix = train_lm_fix_init %>% filter(location == "Mexico")
+test_lm_fix = test_lm_fix_init %>% filter(location == "Mexico")
 
 data_folds = rolling_origin(
   train_lm_fix,
@@ -156,6 +156,7 @@ autoplot(autoarima_tuned, metric = "rmse")
 # germany (4,0,3,0)
 # india (3,0,3,0)
 # italy (3,0,3,0)
+# mexico (3,0,3,0)
 # morocco (3,0,3,0)
 # pakistan (3,0,3,0)
 # philippines (3,0,3,0)
@@ -169,7 +170,7 @@ autoplot(autoarima_tuned, metric = "rmse")
 # United States (3,1,3,0)
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 3, non_seasonal_differences = 1, non_seasonal_ma = 3,
+  non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
