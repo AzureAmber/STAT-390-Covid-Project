@@ -108,6 +108,17 @@ result
 
 
 
+final_test = test_lm %>%
+  bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
+  rename(pred = .pred)
+result_test = final_test %>%
+  group_by(location) %>%
+  summarise(value = rmse(new_cases, pred)) %>%
+  arrange(location)
+
+
+
+
 
 
 

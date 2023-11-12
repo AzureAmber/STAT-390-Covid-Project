@@ -132,7 +132,7 @@ autoarima_tuned = tune_grid(
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
-  metrics = metric_set(rmse)
+  metrics = metric_set(yardstick::rmse)
 )
 
 stopCluster(cores.cluster)
@@ -146,7 +146,27 @@ autoarima_tuned %>% collect_metrics() %>%
 autoplot(autoarima_tuned, metric = "rmse")
 
 # 8. Fit Best Model
-# p = 3, d = 1, q = 3, D = 0
+# argentina (3,1,3,0)
+# australia (3,0,3,0)
+# canada (3,0.5.0)
+# colombia (3,1,3,0)
+# ecuador (3,0,3,0)
+# ethiopia (3,0,3,0)
+# france (3,0,3,0)
+# germany (4,0,3,0)
+# india (3,0,3,0)
+# italy (3,0,3,0)
+# morocco (3,0,3,0)
+# pakistan (3,0,3,0)
+# philippines (3,0,3,0)
+# russia (3,0,3,0)
+# saudi arabia (3,0,3,0)
+# south africa (3,0,3,0)
+# south korea (4,0,3,0)
+# sri lanka (3,1,3,0)
+# turkey (3,1,3,0)
+# united kingdom (3,1,3,0)
+# United States (3,1,3,0)
 autoarima_model = arima_reg(
   seasonal_period = 53,
   non_seasonal_ar = 3, non_seasonal_differences = 1, non_seasonal_ma = 3,
