@@ -70,8 +70,8 @@ ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)
 
 # 3 ARIMA model for US data
 # Find best arima parameters to model the error after removing trend
-train_lm_fix = train_lm_fix_init %>% filter(location == "Morocco")
-test_lm_fix = test_lm_fix_init %>% filter(location == "Morocco")
+train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
+test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
 
 y = ts(data = train_lm_fix %>% select(err), start = 1, frequency = 1)
 plot(y)
@@ -178,9 +178,19 @@ autoplot(arima_tuned, metric = "rmse")
 # Japan (5,1,4,0)
 # Mexico (5,1,4,0)
 # Morocco (4,0,3,0)
+# Pakistan (3,0,4,0)
+# Philippines (5,1,4,0)
+# Russia (5,1,4,1)
+# Saudi Arabia (4,1,5,1)
+# South Africa (3,0,3,0)
+# South Korea (4,0,4,0)
+# Sri Lanka (3,2,5,0)
+# Turkey (4,2,4,0)
+# United Kingdom (4,0,5,0)
+# United States (5,0,4,0)
 arima_model = arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 3,
+  non_seasonal_ar = 5, non_seasonal_differences = 0, non_seasonal_ma = 4,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('arima')
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
