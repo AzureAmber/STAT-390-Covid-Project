@@ -95,11 +95,36 @@ btree_fit = fit(btree_wflow, data = train_tree)
 final_train = train_tree %>%
   bind_cols(predict(btree_fit, new_data = train_tree)) %>%
   rename(pred = .pred)
+final_test = test_tree %>%
+  bind_cols(predict(btree_fit, new_data = test_tree)) %>%
+  rename(pred = .pred)
 
-ggplot(final_train %>% filter(location == "United States")) +
-  geom_line(aes(date, new_cases), color = 'red') +
-  geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15)
+
+
+
+x = final_test %>% filter(location == "United States") %>%
+  select(date, new_cases, pred) %>%
+  pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value")
+ggplot(x, aes(date, value)) +
+  geom_line(aes(color = type, linetype = type)) +
+  scale_y_continuous(n.breaks = 10) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  scale_linetype_manual(labels = c("New Cases", "Predicted New Cases"), values = c(1,2)) +
+  scale_color_manual(labels = c("New Cases", "Predicted New Cases"), values = c("red", "blue")) +
+  labs(
+    title = "Testing: Actual vs Predicted New Cases in United States",
+    subtitle = "boost_tree(trees = 1000, tree_depth = 20, learn_rate = 0.0178, min_n = 5, mtry = 15)",
+    x = "Date", y = "New Cases") +
+  theme_light() +
+  theme(
+    axis.text.x = element_text(angle = 20),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
+
+
+
 
 library(ModelMetrics)
 results = final_train %>%
