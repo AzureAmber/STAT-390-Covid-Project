@@ -323,8 +323,12 @@ print(rmse_results)
 # 7. fit train and predict test
 
 
+
 autoarima_fit_ger <- fit(autoarima_wflow_tuned, train_lm_fix_Germany)
 
+
+
+autoarima_fit_ger <- fit(autoarima_wflow_tuned, train_lm_fix_Germany)
 final_train_ger <- train_lm_fix_Germany %>%
   bind_cols(pred_err = autoarima_fit_ger$fit$fit$fit$data$.fitted) %>%
   mutate(pred = trend + pred_err) %>%
@@ -339,7 +343,6 @@ train_ger_pred <- final_train_ger %>%
   scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
                      name = "Data", 
                      labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
-
   labs(title = "Auto-ARIMA Model Fit vs Actual Data (Germany)",
        y = "New Cases", x = "Date") +
   theme_minimal() +
@@ -371,6 +374,7 @@ test_ger_pred <- final_test_ger %>%
        y = "Value", x = "Date") +
   theme_minimal() +
   scale_y_continuous(n.breaks = 15)
+
 
 
 ggsave(test_ger_pred, file = "Results/erica/autoarima/test_ger_pred.jpeg")
