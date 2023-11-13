@@ -313,7 +313,67 @@ for (location in country_names) {
 print(rmse_results)   
 
 
+
 #write.csv(rmse_results, "rmse_results.csv", row.names = FALSE)
+
+
+#Germany
+
+
+# 7. fit train and predict test
+
+
+autoarima_fit_ger <- fit(autoarima_wflow_tuned, train_lm_fix_Germany)
+
+final_train_ger <- train_lm_fix_Germany %>%
+  bind_cols(pred_err = autoarima_fit_ger$fit$fit$fit$data$.fitted) %>%
+  mutate(pred = trend + pred_err) %>%
+  mutate_if(is.numeric, round, 5)
+
+# prediction model
+
+train_ger_pred <- final_train_ger %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, color = "train_actual")) + 
+  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
+  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
+                     name = "Data", 
+                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
+
+  labs(title = "Auto-ARIMA Model Fit vs Actual Data (Germany)",
+       y = "New Cases", x = "Date") +
+  theme_minimal() +
+  scale_y_continuous(n.breaks = 15)
+
+
+ggsave(train_ger_pred, file = "Results/erica/autoarima/train_ger_pred.jpeg")
+
+
+
+# Testing set
+final_test_ger <- test_lm_fix_Germany %>%
+  bind_cols(predict(autoarima_fit_ger, new_data = test_lm_fix_Germany)) %>%
+  rename(pred_err = .pred) %>%
+  mutate(pred = trend + pred_err) %>%
+  mutate_if(is.numeric, round, 5)
+
+# final prediction with linear trend + arima error modelling
+
+
+test_ger_pred <- final_test_ger %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, color = "test_actual")) + 
+  geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
+  scale_color_manual(values = c("test_actual" = "red", "test_pred" = "blue"),
+                     name = "Data", 
+                     labels = c("test_actual" = "Test Actual", "test_pred" = "Test Predicted")) +
+  labs(title = "Linear Trend + auto arima Testing (Germany)",
+       y = "Value", x = "Date") +
+  theme_minimal() +
+  scale_y_continuous(n.breaks = 15)
+
+
+ggsave(test_ger_pred, file = "Results/erica/autoarima/test_ger_pred.jpeg")
 
 
 
