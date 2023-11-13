@@ -119,6 +119,8 @@ autoarima_wflow <- workflow() %>%
   add_model(autoarima_model) %>%
   add_recipe(autoarima_recipe)
 
+save(autoarima_wflow, file = "Models/erica/results/autoarima/autoarima_wflow.rda")
+
 
 
 # 5. Setup tuning grid
@@ -150,6 +152,8 @@ autoarima_tuned <- tune_grid(
                          parallel_over = "everything"),
   metrics = metric_set(yardstick::rmse)
 )
+
+save(autoarima_tuned, file = "Models/erica/results/autoarima/autoarima_tuned.rda")
 
 stopCluster(cores.cluster)
 
