@@ -730,6 +730,8 @@ arima_tuned_ger <- tune_grid(
 
 save(arima_tuned_ger, file = "Models/erica/results/arima_tuned_ger.rda")
 
+load("Models/erica/results/arima/arima_tuned_ger.rda")
+
 stopCluster(cores.cluster)
 
 arima_tuned_ger %>% collect_metrics() %>%
@@ -763,7 +765,7 @@ final_train_ger <- train_lm_fix_Germany %>%
 
 
 # prediction model
-final_train_ger %>%
+ger_train_pred <- final_train_ger %>%
   ggplot(aes(x = date)) +
   geom_line(aes(y = value, color = "train_actual")) + 
   geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
@@ -774,6 +776,8 @@ final_train_ger %>%
        y = "New Cases", x = "Date") +
   theme_minimal() +
   scale_y_continuous(n.breaks = 15)
+
+ggsave(ger_train_pred, file = "Results/erica/arima/ger_train_pred.jpeg")
 
 
 # rmse of linear trend + arima
@@ -790,7 +794,7 @@ final_test_ger <- test_lm_fix_Germany %>%
 
 # final prediction with linear trend + arima error modelling
 
-final_test_ger %>%
+ger_test_pred <- final_test_ger %>%
   ggplot(aes(x = date)) +
   geom_line(aes(y = value, color = "test_actual")) + 
   geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
@@ -801,6 +805,8 @@ final_test_ger %>%
        y = "Value", x = "Date") +
   theme_minimal() +
   scale_y_continuous(n.breaks = 15)
+
+ggsave(ger_test_pred, file = "Results/erica/arima/ger_test_pred.jpeg")
 
 # rmse of linear trend + arima
 ModelMetrics::rmse(final_test_ger$value, final_test_ger$pred) #106454
