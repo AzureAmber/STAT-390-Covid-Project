@@ -18,8 +18,10 @@ time_series <- train_lm %>% select(new_cases) %>% as.ts()
 
 # Plot the time series
 train_lm |> 
+  filter(location == "Germany") |> 
   select(date, new_cases) |> 
-  plot_time_series(date, new_cases)
+  plot_time_series(date, new_cases, .smooth = FALSE, .title = "Time Series Plot for Germany") 
+
 
 # Stationarity
 adf.test(time_series)

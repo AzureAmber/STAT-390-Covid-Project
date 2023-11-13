@@ -96,12 +96,33 @@ prophet_wflow_final <- prophet_wflow |>
 prophet_multi_fit <- fit(prophet_wflow_final, data = train_lm)
 
 # Train data
-predict(prophet_multi_fit, new_data = train_lm) |> 
+library(ModelMetrics)
+prophet_train_results <- predict(prophet_multi_fit, new_data = train_lm) |> 
   bind_cols(train_lm |> select(new_cases, location, date)) |> 
-  rename(pred = .pred) |> 
-  group_by(location) |> 
-  summarize(value = rmse(new_cases, pred)) |> 
-  arrange(location)
+  rename(pred = .pred) 
+  # group_by(location) |> 
+  # summarize(value = rmse(new_cases, pred)) |> 
+  # arrange(location)
+
+
+ggplot(prophet_train_results %>% filter(location == "Japan")) +
+  geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
+  geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "month") + 
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Training: Actual vs. Predicted New Cases in Japan",
+       subtitle = "prophet_reg(changepoint_num = 0, changepoint_range = 0.6,
+         prior_scale_changepoints = 100, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001)",
+       caption = "Prophet Multivariate",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 45)) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
 
 # location        value
 # <chr>           <dbl>
@@ -149,7 +170,7 @@ unique_countries <- unique(c(g20, g24))
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Actual vs. Predicted New Cases in", country, "in 2023")
+  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country, "in 2023")
   file_name <- paste("Results/cindy/prophet_multi/prophet_multi_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
   
   prophet_multi_country <- ggplot(prophet_multi_pred %>% filter(location == country)) +
@@ -161,7 +182,9 @@ for(country in unique_countries) {
     labs(x = "Date", 
          y = "New Cases", 
          title = plot_name,
-         subtitle = "Prophet Multivariate",
+         subtitle = "prophet_reg(changepoint_num = 0, changepoint_range = 0.6,
+         prior_scale_changepoints = 100, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001)",
+         caption = "Prophet Multivariate",
          color = "") + 
     theme(plot.title = element_text(face = "bold", hjust = 0.5),
           plot.subtitle = element_text(face = "italic", hjust = 0.5),
@@ -173,7 +196,24 @@ for(country in unique_countries) {
   ggsave(file_name, prophet_multi_country, width = 10, height = 6)
 }
 
-
+ggplot(prophet_multi_pred %>% filter(location == "United States")) +
+  geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
+  geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "month") + 
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Testing: Actual vs. Predicted New Cases in United States in 2023",
+       subtitle = "prophet_reg(changepoint_num = 0, changepoint_range = 0.6,
+         prior_scale_changepoints = 100, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001)",
+       caption = "Prophet Multivariate",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 45)) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
 # Table for test predictions
 prophet_multi_results <- prophet_multi_pred %>%
   group_by(location) %>%
@@ -206,3 +246,6 @@ prophet_multi_results <- prophet_multi_pred %>%
 # 21 Turkey          2909.
 # 22 United Kingdom  3744.
 # 23 United States  51338.
+
+
+save(prophet_train_results, prophet_multi_results, file = "Models/cindy/results/prophet_multi.rda")
