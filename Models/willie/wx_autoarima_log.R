@@ -82,8 +82,8 @@ ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)
 
 # ARIMA Model tuning for errors
 # 3. Create validation sets for every year train + 2 month test with 4-month increments
-train_lm_fix = train_lm_fix_init %>% filter(location == "Mexico")
-test_lm_fix = test_lm_fix_init %>% filter(location == "Mexico")
+train_lm_fix = train_lm_fix_init %>% filter(location == "Germany")
+test_lm_fix = test_lm_fix_init %>% filter(location == "Germany")
 
 data_folds = rolling_origin(
   train_lm_fix,
@@ -156,6 +156,7 @@ autoplot(autoarima_tuned, metric = "rmse")
 # germany (4,0,3,0)
 # india (3,0,3,0)
 # italy (3,0,3,0)
+# japan (3,0,3,0)
 # mexico (3,0,3,0)
 # morocco (3,0,3,0)
 # pakistan (3,0,3,0)
@@ -170,7 +171,7 @@ autoplot(autoarima_tuned, metric = "rmse")
 # United States (3,1,3,0)
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 3,
+  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -264,6 +265,69 @@ rmse(exp(final_test$value), exp(final_test$pred))
 
 
 
+
+
+
+
+
+
+x = final_train %>% 
+  select(date, value, pred) %>%
+  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
+  mutate(
+    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
+    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
+  )
+
+
+
+ggplot(x, aes(date, exp(value))) +
+  geom_line(aes(color = type, linetype = type)) +
+  scale_y_continuous(n.breaks = 10) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(
+    title = "Training: Actual vs Predicted New Cases in Germany",
+    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    x = "Date", y = "New Cases") +
+  theme_light() +
+  theme(
+    axis.text.x = element_text(angle = 20),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
+
+
+
+
+
+y = final_test %>% 
+  select(date, value, pred) %>%
+  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
+  mutate(
+    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
+    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
+  )
+
+
+
+ggplot(y, aes(date, exp(value))) +
+  geom_line(aes(color = type, linetype = type)) +
+  scale_y_continuous(n.breaks = 10) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(
+    title = "Testing: Actual vs Predicted New Cases in Germany",
+    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    x = "Date", y = "New Cases") +
+  theme_light() +
+  theme(
+    axis.text.x = element_text(angle = 20),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
 
 
 
