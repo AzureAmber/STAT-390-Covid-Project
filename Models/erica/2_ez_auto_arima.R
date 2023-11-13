@@ -167,7 +167,7 @@ autoarima_us_autoplot <- autoplot(autoarima_tuned, metric = "rmse")
 show_best(autoarima_tuned, metric = "rmse")
 
 #save autoplot
-jpeg("Models/erica/results/autoarima_us_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
+jpeg("Models/erica/results/autoarima/autoarima_us_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
 # Print the plot to the device
 print(autoarima_us_autoplot)
 # Close the device
@@ -199,7 +199,7 @@ final_train_us %>%
   theme_minimal() +
   scale_y_continuous(n.breaks = 15)
 # prediction model
-final_train_us %>%
+train_us_pred <- final_train_us %>%
   ggplot(aes(x = date)) +
   geom_line(aes(y = value, color = "train_actual")) + 
   geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
@@ -210,6 +210,8 @@ final_train_us %>%
        y = "New Cases", x = "Date") +
   theme_minimal() +
   scale_y_continuous(n.breaks = 15)
+
+ggsave(train_us_pred, file = "Results/erica/autoarima/train_us_pred.jpeg")
 
 
 
@@ -245,7 +247,7 @@ final_test_us %>%
 
 # final prediction with linear trend + arima error modelling
 
-final_test_us %>%
+test_us_pred <- final_test_us %>%
   ggplot(aes(x = date)) +
   geom_line(aes(y = value, color = "test_actual")) + 
   geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
@@ -257,6 +259,7 @@ final_test_us %>%
   theme_minimal() +
   scale_y_continuous(n.breaks = 15)
 
+ggsave(test_us_pred, file = "Results/erica/autoarima/test_us_pred.jpeg")
 
 # rmse of just linear trend
 ModelMetrics::rmse(final_test_us$value, final_test_us$trend)
