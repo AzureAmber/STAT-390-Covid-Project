@@ -76,7 +76,7 @@ prophet_model = prophet_reg(
   growth = "linear", season = "additive",
   seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
   changepoint_num = 0, prior_scale_changepoints = 0.001,
-  prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
+  prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
 prophet_recipe = recipe(new_cases ~ date + location, data = train_lm) %>%
   step_dummy(all_nominal_predictors())
@@ -87,6 +87,9 @@ prophet_wflow = workflow() %>%
 prophet_fit = fit(prophet_wflow, data = train_lm)
 final_train = train_lm %>%
   bind_cols(predict(prophet_fit, new_data = train_lm)) %>%
+  rename(pred = .pred)
+final_test = test_lm %>%
+  bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
   rename(pred = .pred)
 
 ggplot(final_train) +
@@ -102,17 +105,72 @@ result = final_train %>%
   arrange(location)
 result
 
-
-
-final_test = test_lm %>%
-  bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
-  rename(pred = .pred)
 result_test = final_test %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%
   arrange(location)
+result_test
+
+
+
+# plots
+
+x = final_train %>%
+  filter(location == "Germany") %>%
+  select(date, new_cases, pred) %>%
+  pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
+  mutate(
+    type = ifelse(type == 'new_cases', 'New Cases', 'Predicted New Cases'),
+    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
+  )
+
+
+
+ggplot(x, aes(date, value)) +
+  geom_line(aes(color = type, linetype = type)) +
+  scale_y_continuous(n.breaks = 10) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(
+    title = "Training: Actual vs Predicted New Cases in United States",
+    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
+    x = "Date", y = "New Cases") +
+  theme_light() +
+  theme(
+    axis.text.x = element_text(angle = 20),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
 
 
 
 
 
+y = final_test %>% 
+  filter(location == "Germany") %>%
+  select(date, new_cases, pred) %>%
+  pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
+  mutate(
+    type = ifelse(type == 'new_cases', 'New Cases', 'Predicted New Cases'),
+    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
+  )
+
+
+
+ggplot(y, aes(date, value)) +
+  geom_line(aes(color = type, linetype = type)) +
+  scale_y_continuous(n.breaks = 10) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(
+    title = "Testing: Actual vs Predicted New Cases in United States",
+    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
+    x = "Date", y = "New Cases") +
+  theme_light() +
+  theme(
+    axis.text.x = element_text(angle = 20),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
