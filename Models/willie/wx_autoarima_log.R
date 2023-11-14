@@ -269,7 +269,7 @@ rmse(exp(final_test$value), exp(final_test$pred))
 
 
 
-
+# plot
 
 x = final_train %>% 
   select(date, value, pred) %>%
