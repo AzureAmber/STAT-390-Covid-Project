@@ -155,6 +155,7 @@ autoarima_tuned <- tune_grid(
 
 save(autoarima_tuned, file = "Models/erica/results/autoarima/autoarima_tuned.rda")
 
+load("Models/erica/results/autoarima/autoarima_tuned.rda")
 stopCluster(cores.cluster)
 
 autoarima_tuned %>% collect_metrics() %>%
@@ -225,8 +226,8 @@ ModelMetrics::rmse(final_train_us$value, final_train_us$pred) #20872.61
 
 
 # Testing set
-final_test_us <- test_lm_fix %>%
-  bind_cols(predict(autoarima_fit_us, new_data = test_lm_fix)) %>%
+final_test_us <- test_lm_fix_United.States %>%
+  bind_cols(predict(autoarima_fit_us, new_data = test_lm_fix_United.States)) %>%
   rename(pred_err = .pred) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
