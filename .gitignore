@@ -57,3 +57,5 @@ Models/cindy/results/arima_tuned_1.rda
 Models/cindy/results/prophet_tuned_1.rda
 Models/erica/results/btree_autoplot_1.png
 Model/erica/results/btree_tuned_1.rda
+.DS_Store
+.DS_Store
