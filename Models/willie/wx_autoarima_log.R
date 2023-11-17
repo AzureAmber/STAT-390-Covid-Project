@@ -18,7 +18,7 @@ complete_lm = train_lm %>% rbind(test_lm) %>%
   arrange(date, .by_group = TRUE) %>%
   mutate(
     cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0),
-    value = roll_mean(cases_log, 7, align = "right", fill = NA)) %>%
+    value = roll_sum(cases_log, 7, align = "right", fill = NA)) %>%
   mutate(value = ifelse(is.na(value), cases_log, value)) %>%
   arrange(date, .by_group = TRUE) %>%
   slice(which(row_number() %% 7 == 0)) %>%
