@@ -9,11 +9,11 @@ library(RcppRoll)
 
 
 # 1. Read in data
-train_lm = readRDS('data/finalized_data/final_train_lm.rds')
-test_lm = readRDS('data/finalized_data/final_test_lm.rds')
+final_train_lm = readRDS('data/avg_final_data/final_train_lm.rds')
+final_test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
 
 # weekly rolling average of new cases
-complete_lm = train_lm %>% rbind(test_lm) %>%
+complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
@@ -108,7 +108,7 @@ data_folds
 arima_model = arima_reg(
   seasonal_period = "auto",
   non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune(),
-  seasonal_ar = 1, seasonal_differences = tune(), seasonal_ma = 1) %>%
+  seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
   set_engine('arima')
 
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -123,9 +123,11 @@ arima_params = arima_wflow %>%
   extract_parameter_set_dials() %>%
   update(
     non_seasonal_differences = non_seasonal_differences(c(0,2)),
-    non_seasonal_ar = non_seasonal_ar(c(3, 5)),
-    non_seasonal_ma = non_seasonal_ma(c(3, 5)),
-    seasonal_differences = seasonal_differences(c(0,2))
+    non_seasonal_ar = non_seasonal_ar(c(0, 4)),
+    non_seasonal_ma = non_seasonal_ma(c(0, 4)),
+    seasonal_differences = seasonal_differences(c(0,2)),
+    seasonal_ar = seasonal_ar(c(0, 2)),
+    seasonal_ma = seasonal_ma(c(0, 2))
   )
 arima_grid = grid_regular(arima_params, levels = 3)
 
@@ -165,32 +167,9 @@ autoplot(arima_tuned, metric = "rmse")
 
 
 # 4. Fit Best Model
-# Argentina (5,1,4,0)
-# Australia (5,1,3,0)
-# Canada (3,0,4,2)
-# Colombia (5,1,3,0)
-# Ecuador (5,0,4,0)
-# Ethiopia (3,1,3,0)
-# France (4,1,3,0)
-# Germany (5,0,3,1)
-# India (5,0,5,0)
-# Italy (3,1,4,0)
-# Japan (5,1,4,0)
-# Mexico (5,1,4,0)
-# Morocco (4,0,3,0)
-# Pakistan (3,0,4,0)
-# Philippines (5,1,4,0)
-# Russia (5,1,4,1)
-# Saudi Arabia (4,1,5,1)
-# South Africa (3,0,3,0)
-# South Korea (4,0,4,0)
-# Sri Lanka (3,2,5,0)
-# Turkey (4,2,4,0)
-# United Kingdom (4,0,5,0)
-# United States (5,0,4,0)
 arima_model = arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 5, non_seasonal_differences = 0, non_seasonal_ma = 4,
+  non_seasonal_ar = 4, non_seasonal_differences = 1, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('arima')
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -198,35 +177,15 @@ arima_wflow = workflow() %>%
   add_model(arima_model) %>%
   add_recipe(arima_recipe)
 
+# Training set
 arima_fit = fit(arima_wflow, data = train_lm_fix)
 final_train = train_lm_fix %>%
   bind_cols(pred_err = arima_fit$fit$fit$fit$data$.fitted) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
 
-# error model
-ggplot(final_train) +
-  geom_line(aes(date, err), color = 'blue') +
-  geom_line(aes(date, pred_err), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Error vs Error Prediction")
-# prediction models
-# initial prediction with just linear trend
-ggplot(final_train) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only linear trend")
-# final prediction with linear trend + arima error modelling
-ggplot(final_train) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with linear trend + arima")
 
 library(ModelMetrics)
-# rmse of error prediction
-rmse(final_train$err, final_train$pred_err)
 # rmse of just linear trend
 rmse(final_train$value, final_train$trend)
 # rmse of linear trend + arima
@@ -240,18 +199,6 @@ final_test = test_lm_fix %>%
   rename(pred_err = .pred) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
-# initial prediction with just linear trend
-ggplot(final_test) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only linear trend")
-# final prediction with linear trend + arima error modelling
-ggplot(final_test) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with linear trend + arima")
 
 # rmse of just linear trend
 rmse(final_test$value, final_test$trend)
@@ -260,7 +207,64 @@ rmse(final_test$value, final_test$pred)
 
 
 
+# plot
+x = final_train %>% 
+  select(date, value, pred) %>%
+  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
+  mutate(
+    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
+    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
+  )
 
+
+
+ggplot(x, aes(date, value)) +
+  geom_line(aes(color = type, linetype = type)) +
+  scale_y_continuous(n.breaks = 10) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(
+    title = "Training: Actual vs Predicted New Cases in United States",
+    subtitle = "Linear Trend + ARIMA(p=5, d=0, q=0, P = 0, D = 0, Q = 0, S = 53)",
+    x = "Date", y = "New Cases") +
+  theme_light() +
+  theme(
+    axis.text.x = element_text(angle = 20),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
+
+
+
+
+
+y = final_test %>% 
+  select(date, value, pred) %>%
+  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
+  mutate(
+    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
+    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
+  )
+
+
+
+ggplot(y, aes(date, value)) +
+  geom_line(aes(color = type, linetype = type)) +
+  scale_y_continuous(n.breaks = 10) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(
+    title = "Testing: Actual vs Predicted New Cases in United States",
+    subtitle = "Linear Trend + ARIMA(p=5, d=0, q=0, P = 0, D = 0, Q = 0, S = 53)",
+    x = "Date", y = "New Cases") +
+  theme_light() +
+  theme(
+    axis.text.x = element_text(angle = 20),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
 
 
 
