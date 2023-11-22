@@ -18,7 +18,7 @@ We have tried our best to keep this repository neat and intuitive.
 - `data`: This folder contains our raw data, processed data (after intial data cleaning), and finalized data (training and testing for linear, tree-based, & neural network). 
 - `Preprocessing Code`: This folder our EDA and data preprocessing steps. 
 - `Reports`: This folder contains our weekly reports, proposal, and midterm report.
-- `Models`: This folder contains all the R scripts for each member's models. Each R script will here will also specify the member's intitals and model type (e.g. `ch_xgboost.R`). 
+- `Models`: This folder contains all the R scripts for each member's models. Each R script will here will also specify the member's intitals and model type (e.g. `ch_xgboost.R`). Moreover, for Erica, the autoplots for each model's tuning result is saved in the `results` sub-directory under Models
 - `Results`: This folder contains all the visualizations for each model, again categorized by member. This may include hyperparameter plots or Actual vs. Predicted New Cases per Country plots (e.g. `Results/willie/arima_argentina.png`). 
 
 To run any of the R scripts or code, please make sure that the dataset has been loaded into the RStudio environment. We have also made sure to include these lines of code at the top. Additionally, some code may take more time to run (e.g. tuning), so we recommend looking at the commented out results or running the R script as a background job. 
