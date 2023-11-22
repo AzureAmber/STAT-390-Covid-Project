@@ -173,7 +173,7 @@ arima_tuned <- tune_grid(
   metrics = metric_set(yardstick::rmse)
 )
 
-save(arima_tuned, file = "Models/erica/results/arima_tuned.rda")
+save(arima_tuned, file = "Models/erica/results/arima/arima_tuned.rda")
 
 stopCluster(cores.cluster)
 
