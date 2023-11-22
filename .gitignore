@@ -55,6 +55,17 @@ Models/cindy/results/btree_tuned_1.rda
 Models/cindy/results/autoarima_results1.rda
 Models/cindy/results/arima_tuned_1.rda
 Models/cindy/results/prophet_tuned_1.rda
+Models/cindy/results/prophet_single.rda
+Models/cindy/results/prophet_multi_log_tuned_1.rda
+Models/cindy/results/prophet_multi_log.rda
+Models/cindy/results/prophet_multi.rda
+Models/cindy/results/btree_log_tuned_1.rda
+Models/cindy/results/btree_log.rda
+Models/cindy/results/btree.rda
+Models/cindy/results/rf_tuned_1.rda
+Models/cindy/results/rf_tuned_1.rda
+Models/cindy/results/rf.rda
+
 Models/erica/results/btree_autoplot_1.png
 Model/erica/results/btree_tuned_1.rda
 .DS_Store

@@ -76,6 +76,7 @@ stopCluster(cores.cluster)
 save(prophet_multi_tuned, file = "Models/cindy/results/prophet_multi_tuned_1.rda")
 
 # 6. Review the best results ----
+load("Models/cindy/results/prophet_multi_tuned_1.rda")
 show_best(prophet_multi_tuned, metric = "rmse")
 # changepoint_num changepoint_range prior_scale_seasonality prior_scale_holidays prior_scale_changepo…¹ .metric .estimator   mean     n
 # <int>             <dbl>                   <dbl>                <dbl>                  <dbl> <chr>   <chr>       <dbl> <int>
@@ -104,26 +105,6 @@ prophet_train_results <- predict(prophet_multi_fit, new_data = train_lm) |>
   # summarize(value = rmse(new_cases, pred)) |> 
   # arrange(location)
 
-
-ggplot(prophet_train_results %>% filter(location == "Japan")) +
-  geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
-  geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) + 
-  scale_x_date(date_breaks = "month") + 
-  theme_minimal() + 
-  labs(x = "Date", 
-       y = "New Cases", 
-       title = "Training: Actual vs. Predicted New Cases in Japan",
-       subtitle = "prophet_reg(changepoint_num = 0, changepoint_range = 0.6,
-         prior_scale_changepoints = 100, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001)",
-       caption = "Prophet Multivariate",
-       color = "") + 
-  theme(plot.title = element_text(face = "bold", hjust = 0.5),
-        plot.subtitle = element_text(face = "italic", hjust = 0.5),
-        legend.position = "bottom",
-        axis.text.x = element_text(angle = 45)) +
-  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
-
 # location        value
 # <chr>           <dbl>
 # 1 Argentina       8519.
@@ -150,11 +131,12 @@ ggplot(prophet_train_results %>% filter(location == "Japan")) +
 # 22 United Kingdom  8898.
 # 23 United States  84084.
 
+# Fitting with test data
 prophet_multi_pred <- predict(prophet_multi_fit, new_data = test_lm) %>% 
   bind_cols(test_lm %>% select(new_cases, location, date)) |> 
   rename(pred = .pred)
 
-# 8. Looking at test results ----
+# 8. Looking at final results ----
 # Actual vs. Pred per country
 # Define the lists of countries
 g20 <- c('Argentina', 'Australia', 'Canada', 'France', 'Germany',
@@ -167,17 +149,19 @@ g24 <- c('Argentina', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
 # Combine and get unique countries from both lists
 unique_countries <- unique(c(g20, g24))
 
+
+## Training Actual vs. Pred plots ----
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country, "in 2023")
-  file_name <- paste("Results/cindy/prophet_multi/prophet_multi_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
+  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country, "in 2023")
+  file_name <- paste("Results/cindy/prophet_multi/training_plots/prophet_multi_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
   
-  prophet_multi_country <- ggplot(prophet_multi_pred %>% filter(location == country)) +
+  prophet_multi_country <- ggplot(prophet_train_results %>% filter(location == country)) +
     geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
     geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
     scale_y_continuous(n.breaks = 15) + 
-    scale_x_date(date_breaks = "month") + 
+    scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
     theme_minimal() + 
     labs(x = "Date", 
          y = "New Cases", 
@@ -188,7 +172,8 @@ for(country in unique_countries) {
          color = "") + 
     theme(plot.title = element_text(face = "bold", hjust = 0.5),
           plot.subtitle = element_text(face = "italic", hjust = 0.5),
-          legend.position = "bottom") +
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
     scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
   
   
@@ -196,25 +181,38 @@ for(country in unique_countries) {
   ggsave(file_name, prophet_multi_country, width = 10, height = 6)
 }
 
-ggplot(prophet_multi_pred %>% filter(location == "United States")) +
-  geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
-  geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) + 
-  scale_x_date(date_breaks = "month") + 
-  theme_minimal() + 
-  labs(x = "Date", 
-       y = "New Cases", 
-       title = "Testing: Actual vs. Predicted New Cases in United States in 2023",
-       subtitle = "prophet_reg(changepoint_num = 0, changepoint_range = 0.6,
+## Testing Actual vs. Pred plots ----
+# Loop through each country
+for(country in unique_countries) {
+  # Create plot for the current country
+  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country, "in 2023")
+  file_name <- paste("Results/cindy/prophet_multi/testing_plots/prophet_multi_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
+  
+  prophet_multi_country <- ggplot(prophet_multi_pred %>% filter(location == country)) +
+    geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
+    geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+    scale_y_continuous(n.breaks = 15) + 
+    scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
+    theme_minimal() + 
+    labs(x = "Date", 
+         y = "New Cases", 
+         title = plot_name,
+         subtitle = "prophet_reg(changepoint_num = 0, changepoint_range = 0.6,
          prior_scale_changepoints = 100, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001)",
-       caption = "Prophet Multivariate",
-       color = "") + 
-  theme(plot.title = element_text(face = "bold", hjust = 0.5),
-        plot.subtitle = element_text(face = "italic", hjust = 0.5),
-        legend.position = "bottom",
-        axis.text.x = element_text(angle = 45)) +
-  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
-# Table for test predictions
+         caption = "Prophet Multivariate",
+         color = "") + 
+    theme(plot.title = element_text(face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(face = "italic", hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
+    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+  
+  
+  # Save the plot with specific dimensions
+  ggsave(file_name, prophet_multi_country, width = 10, height = 6)
+}
+
+## Table for test predictions ----
 prophet_multi_results <- prophet_multi_pred %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%

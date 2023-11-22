@@ -91,6 +91,7 @@ stopCluster(cores.cluster)
 save(btree_tuned, btree_tictoc, file = "Models/cindy/results/btree_tuned_1.rda")
 
 # 6. Review the best results ----
+load("Models/cindy/results/btree_tuned_1.rda")
 show_best(btree_tuned, metric = "rmse")
 # mtry min_n tree_depth learn_rate stop_iter .metric .estimator  mean     n std_err .config               
 #   16     2          2     0.316         50 rmse    standard   7496.   163    853. Preprocessor1_Model218
@@ -103,51 +104,54 @@ autoplot(btree_tuned, metric = "rmse")
 
 # 7. Fit Best Model ----
 # first using best model from above
+# mtry = 16, min_n =2, tree_depth = 2, learn_rate = 0.316, stop_iter = 50
 btree_wflow_final <- btree_wflow |> 
   finalize_workflow(select_best(btree_tuned, metric = "rmse"))
 
 btree_fit <- fit(btree_wflow_final, data = train_tree)
 
 # Train data 
-predict(btree_fit, new_data = train_tree) %>% 
+btree_train_results <- predict(btree_fit, new_data = train_tree) %>% 
   bind_cols(train_tree %>% select(new_cases, location, date)) |> 
-  rename(pred = .pred) |> 
-  group_by(location) |> 
-  summarise(value = rmse(new_cases, pred)) |> 
-  arrange(value)
+  rename(pred = .pred)
+  # group_by(location) |> 
+  # summarise(value = rmse(new_cases, pred)) |> 
+  # arrange(location)
 
-# location        value
-# 1 Morocco         1016.
-# 2 Saudi Arabia    1062.
-# 3 Ethiopia        1225.
-# 4 Sri Lanka       1478.
-# 5 Pakistan        1511.
-# 6 South Africa    1933.
-# 7 Colombia        1982.
-# 8 Ecuador         2379.
-# 9 Argentina       2624.
-# 10 Philippines     2784.
-# 11 Canada          2786.
-# 12 Mexico          2939.
-# 13 Turkey          3165.
-# 14 Russia          3786.
-# 15 Italy           3862.
-# 16 United Kingdom  4144.
-# 17 Australia       5457.
-# 18 Japan           6058.
-# 19 South Korea     6470.
-# 20 Germany         8431.
-# 21 France          8465.
-# 22 India           8869.
-# 23 United States  12087.
+# location         value
+# <chr>            <dbl>
+# 1 Argentina       19387.
+# 2 Australia       51840.
+# 3 Canada           7803.
+# 4 Colombia         9559.
+# 5 Ecuador          1768.
+# 6 Ethiopia          800.
+# 7 France         176016.
+# 8 Germany        158053.
+# 9 India           83371.
+# 10 Italy           40994.
+# 11 Japan           57693.
+# 12 Mexico          11840.
+# 13 Morocco          2269.
+# 14 Pakistan         2191.
+# 15 Philippines      6720.
+# 16 Russia          34375.
+# 17 Saudi Arabia     1300.
+# 18 South Africa     6309.
+# 19 South Korea     70177.
+# 20 Sri Lanka        1219.
+# 21 Turkey          31682.
+# 22 United Kingdom  38904.
+# 23 United States  156766.
 
+# Fitting with test data
 btree_pred <- predict(btree_fit, new_data = test_tree) %>% 
   bind_cols(test_tree %>% select(new_cases, location, date)) |> 
   rename(pred = .pred)
 
 # 8. Looking at results ----
 # Actual vs. Pred per country
-ggplot(btree_pred %>% filter(location == "United States")) +
+ggplot(btree_pred %>% filter(location == "Japan")) +
   geom_line(aes(date, new_cases), color = 'red') +
   geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
   scale_y_continuous(n.breaks = 15) + 
@@ -162,32 +166,33 @@ ggplot(btree_pred %>% filter(location == "United States")) +
 btree_results <- btree_pred %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%
-  arrange(value)
+  arrange(location)
 
-# location         value
-# 1 Sri Lanka         453.
-# 2 Ethiopia          503.
-# 3 Pakistan          908.
-# 4 Turkey           1099.
-# 5 Colombia         1181.
-# 6 South Africa     1736.
-# 7 Saudi Arabia     1803.
-# 8 Ecuador          1852.
-# 9 Canada           2374.
-# 10 Russia           5290.
-# 11 Germany          6425.
-# 12 France           9383.
-# 13 Philippines     10976.
-# 14 Mexico          15059.
-# 15 South Korea     16241.
-# 16 Australia       18255.
-# 17 Morocco         18865.
-# 18 Japan           20802.
-# 19 India           25865.
-# 20 Argentina       29811.
-# 21 United Kingdom  64916.
-# 22 Italy           86135.
-# 23 United States  348243.
+# location            value
+# <chr>               <dbl>
+# 1 Argentina       5467.    
+# 2 Australia      10035.    
+# 3 Canada          2760.    
+# 4 Colombia         519.    
+# 5 Ecuador          435.    
+# 6 Ethiopia          22.5   
+# 7 France         15226.    
+# 8 Germany        20497.    
+# 9 India           2967.    
+# 10 Italy           5033.    
+# 11 Japan          44509.    
+# 12 Mexico          2748.    
+# 13 Morocco           85.4   
+# 14 Pakistan          37.0   
+# 15 Philippines      851.    
+# 16 Russia          6723.    
+# 17 Saudi Arabia     105.    
+# 18 South Africa     437.    
+# 19 South Korea    52976.    
+# 20 Sri Lanka          3.22  
+# 21 Turkey             0.0564
+# 22 United Kingdom  2760.    
+# 23 United States  65953. 
 
 # x <- btree_results |> 
 #   arrange(location) |> 
@@ -222,33 +227,34 @@ predict(btree_fit_2, new_data = train_tree) %>%
   rename(pred = .pred) |> 
   group_by(location) |> 
   summarise(value = rmse(new_cases, pred)) |> 
-  arrange(value) |> print(n = 23)
+  arrange(location) |> print(n = 23)
 
-# location       value
-# <chr>          <dbl>
-# 1 Saudi Arabia    27.2
-# 2 Sri Lanka       30.6
-# 3 Ethiopia        31.9
-# 4 Morocco         44.9
-# 5 Ecuador         52.7
-# 6 Pakistan        64.6
-# 7 Germany         72.1
-# 8 Canada          75.4
-# 9 South Africa    75.6
-# 10 France          83.0
-# 11 Australia       84.1
-# 12 Argentina       89.9
-# 13 Colombia        93.5
-# 14 Mexico         100. 
-# 15 Philippines    104. 
-# 16 South Korea    126. 
-# 17 Russia         142. 
-# 18 Turkey         145. 
-# 19 United Kingdom 147. 
-# 20 Japan          164. 
-# 21 Italy          168. 
-# 22 India          194. 
-# 23 United States  213. 
+# NOTE: performed the same as attempt 1
+# location         value
+# <chr>            <dbl>
+# 1 Argentina       19387.
+# 2 Australia       51840.
+# 3 Canada           7803.
+# 4 Colombia         9559.
+# 5 Ecuador          1768.
+# 6 Ethiopia          800.
+# 7 France         176016.
+# 8 Germany        158053.
+# 9 India           83371.
+# 10 Italy           40994.
+# 11 Japan           57693.
+# 12 Mexico          11840.
+# 13 Morocco          2269.
+# 14 Pakistan         2191.
+# 15 Philippines      6720.
+# 16 Russia          34375.
+# 17 Saudi Arabia     1300.
+# 18 South Africa     6309.
+# 19 South Korea     70177.
+# 20 Sri Lanka        1219.
+# 21 Turkey          31682.
+# 22 United Kingdom  38904.
+# 23 United States  156766.
 
 # Test data
 # NOTE: model may be severely overfitting to training set...
@@ -259,37 +265,38 @@ btree_pred_2 <- predict(btree_fit_2, new_data = test_tree) %>%
 btree_results_2 <- btree_pred_2 %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%
-  arrange(value) |> print(n = 23)
+  arrange(location) |> print(n = 23)
 
-btree_results_2 |> 
-  arrange(location) |> 
-  pivot_wider(names_from = location, values_from = value)
-# NOTE: not performing well at all...need to change parameter values
-# location          value
-# <chr>             <dbl>
-# 1 Saudi Arabia       16.5
-# 2 Ethiopia           25.1
-# 3 Sri Lanka          59.2
-# 4 Pakistan           79.8
-# 5 South Africa      150. 
-# 6 Colombia          402. 
-# 7 Canada            858. 
-# 8 Ecuador          3015. 
-# 9 Mexico           3046. 
-# 10 Turkey           3768. 
-# 11 Russia           7355. 
-# 12 Philippines     11439. 
-# 13 Germany         12924. 
-# 14 Morocco         14677. 
-# 15 France          16702. 
-# 16 Japan           17929. 
-# 17 South Korea     23957. 
-# 18 Australia       35333. 
-# 19 United Kingdom  38927. 
-# 20 India           87147. 
-# 21 Argentina       96022. 
-# 22 Italy          110113. 
-# 23 United States  573818. 
+# btree_results_2 |> 
+#   arrange(location) |> 
+#   pivot_wider(names_from = location, values_from = value)
+
+# NOTE: performed better on test than train, but exact same values as attempt 1
+# location             value
+# <chr>                <dbl>
+# 1 Argentina       5467.     
+# 2 Australia      10036.     
+# 3 Canada          2760.     
+# 4 Colombia         519.     
+# 5 Ecuador          435.     
+# 6 Ethiopia          22.6    
+# 7 France         15226.     
+# 8 Germany        20497.     
+# 9 India           2967.     
+# 10 Italy           5033.     
+# 11 Japan          44509.     
+# 12 Mexico          2748.     
+# 13 Morocco           85.4    
+# 14 Pakistan          36.7    
+# 15 Philippines      851.     
+# 16 Russia          6723.     
+# 17 Saudi Arabia     105.     
+# 18 South Africa     437.     
+# 19 South Korea    52976.     
+# 20 Sri Lanka          3.39   
+# 21 Turkey             0.00124
+# 22 United Kingdom  2760.     
+# 23 United States  65953. 
 
 ## Attempt 3 ----
 btree_model_3 <- boost_tree(
@@ -314,7 +321,9 @@ predict(btree_fit_3, new_data = train_tree) %>%
   rename(pred = .pred) |> 
   group_by(location) |> 
   summarise(value = rmse(new_cases, pred)) |> 
-  arrange(value) |> print(n = 23)
+  arrange(location) |> print(n = 23)
+
+# SAME RESULTS AS ATTEMPT 1 and 2 ^^
 
 # Test data
 btree_pred_3 <- predict(btree_fit_3, new_data = test_tree) %>% 
@@ -324,7 +333,118 @@ btree_pred_3 <- predict(btree_fit_3, new_data = test_tree) %>%
 btree_results_3 <- btree_pred_3 %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%
-  arrange(value) |> print(n = 23)
+  arrange(location) |> print(n = 23)
+
+# SAME RESULTS AS ATTEMPT 1 and 2 ^^
+
+# 10. Looking at final results ----
+# Actual vs. Pred per country
+# Define the lists of countries
+g20 <- c('Argentina', 'Australia', 'Canada', 'France', 'Germany',
+         'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
+         'Saudi Arabia', 'South Africa', 'Turkey', 'United Kingdom', 'United States')
+
+g24 <- c('Argentina', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
+         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
+
+# Combine and get unique countries from both lists
+unique_countries <- unique(c(g20, g24))
+
+
+## Training Actual vs. Pred plots ----
+# Loop through each country
+for(country in unique_countries) {
+  # Create plot for the current country
+  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country, "in 2023")
+  file_name <- paste("Results/cindy/xgboost/training_plots/xgboost_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
+  
+  xgboost_country <- ggplot(btree_train_results %>% filter(location == country)) +
+    geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
+    geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+    scale_y_continuous(n.breaks = 15) + 
+    scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
+    theme_minimal() + 
+    labs(x = "Date", 
+         y = "New Cases", 
+         title = plot_name,
+         subtitle = "boost_tree(trees = 500, mtry = 16, min_n =2, tree_depth = 2, learn_rate = 0.316, stop_iter = 50)",
+         caption = "XGBoost",
+         color = "") + 
+    theme(plot.title = element_text(face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(face = "italic", hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
+    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+  
+  
+  # Save the plot with specific dimensions
+  ggsave(file_name, xgboost_country, width = 10, height = 6)
+}
+
+## Testing Actual vs. Pred plots ----
+# Loop through each country
+for(country in unique_countries) {
+  # Create plot for the current country
+  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country, "in 2023")
+  file_name <- paste("Results/cindy/xgboost/testing_plots/xgboost_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
+  
+  xgboost_country <- ggplot(btree_pred %>% filter(location == country)) +
+    geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
+    geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+    scale_y_continuous(n.breaks = 15) + 
+    scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
+    theme_minimal() + 
+    labs(x = "Date", 
+         y = "New Cases", 
+         title = plot_name,
+         subtitle = "boost_tree(trees = 500, mtry = 16, min_n =2, tree_depth = 2, learn_rate = 0.316, stop_iter = 50)",
+         caption = "XGBoost",
+         color = "") + 
+    theme(plot.title = element_text(face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(face = "italic", hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
+    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+  
+  
+  # Save the plot with specific dimensions
+  ggsave(file_name, xgboost_country, width = 10, height = 6)
+}
+
+## Table for test predictions ----
+btree_results <- btree_pred %>%
+  group_by(location) %>%
+  summarise(value = rmse(new_cases, pred)) %>%
+  arrange(location)
+
+# location            value
+# <chr>               <dbl>
+# 1 Argentina       5467.    
+# 2 Australia      10035.    
+# 3 Canada          2760.    
+# 4 Colombia         519.    
+# 5 Ecuador          435.    
+# 6 Ethiopia          22.5   
+# 7 France         15226.    
+# 8 Germany        20497.    
+# 9 India           2967.    
+# 10 Italy           5033.    
+# 11 Japan          44509.    
+# 12 Mexico          2748.    
+# 13 Morocco           85.4   
+# 14 Pakistan          37.0   
+# 15 Philippines      851.    
+# 16 Russia          6723.    
+# 17 Saudi Arabia     105.    
+# 18 South Africa     437.    
+# 19 South Korea    52976.    
+# 20 Sri Lanka          3.22  
+# 21 Turkey             0.0564
+# 22 United Kingdom  2760.    
+# 23 United States  65953. 
+
+
+save(btree_results, btree_train_results, btree_pred, file = "Models/cindy/results/btree.rda")
 
 
 
