@@ -13,7 +13,9 @@ train_lm = readRDS('data/finalized_data/final_train_lm.rds')
 test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
 # weekly rolling sum of log of new cases
-complete_lm = train_lm %>% rbind(test_lm) %>%
+# Remove observations before first apperance of COVID: 2020-01-04
+complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
+  filter(date >= as.Date("2020-01-04")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   mutate(
@@ -36,7 +38,7 @@ test_lm = complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 
-
+# plots of some countries
 ggplot(train_lm %>% filter(location == "United States"), aes(date, value)) +
   geom_point()
 ggplot(train_lm %>% filter(location == "Germany"), aes(date, value)) +
@@ -66,24 +68,15 @@ for (i in country_names) {
 }
 # plot of original data and trend
 ggplot(train_lm_fix_init %>% filter(location == "United States")) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(trend)), color = 'red') +
-  labs(title = "Original rolling average vs prediction")
-ggplot(train_lm_fix_init %>% filter(location == "United States")) +
   geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red') +
-  labs(title = "Log transformed rolling average vs log prediction")
+  geom_line(aes(date, trend), color = 'red')
 # plot of residual errors
 ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)) + geom_line()
 
-
-
-
-
-# ARIMA Model tuning for errors
-# 3. Create validation sets for every year train + 2 month test with 4-month increments
-train_lm_fix = train_lm_fix_init %>% filter(location == "Germany")
-test_lm_fix = test_lm_fix_init %>% filter(location == "Germany")
+# 3 ARIMA model for US data
+# Find best arima parameters to model the error after removing trend
+train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
+test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
 
 data_folds = rolling_origin(
   train_lm_fix,
@@ -94,7 +87,7 @@ data_folds = rolling_origin(
 )
 data_folds
 
-# 4. Define model, recipe, and workflow
+# 3.1. Define model, recipe, and workflow
 autoarima_model = arima_reg(
   seasonal_period = 53,
   non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune(),
@@ -102,13 +95,13 @@ autoarima_model = arima_reg(
   set_engine('auto_arima')
 
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
-# View(autoarima_recipe %>% prep() %>% bake(new_data = NULL))
+# View(arima_recipe %>% prep() %>% bake(new_data = NULL))
 
 autoarima_wflow = workflow() %>%
   add_model(autoarima_model) %>%
   add_recipe(autoarima_recipe)
 
-# 5. Setup tuning grid
+# 3.2. Setup tuning grid
 autoarima_params = autoarima_wflow %>%
   extract_parameter_set_dials() %>%
   update(
@@ -119,7 +112,7 @@ autoarima_params = autoarima_wflow %>%
   )
 autoarima_grid = grid_regular(autoarima_params, levels = 3)
 
-# 6. Model Tuning
+# 3.3. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
 cores.cluster = makePSOCKcluster(20)
@@ -142,42 +135,28 @@ autoarima_tuned %>% collect_metrics() %>%
   group_by(.metric) %>%
   arrange(mean)
 
-# 7. Results
+# 3.4. Results
 autoplot(autoarima_tuned, metric = "rmse")
 
-# 8. Fit Best Model
-# argentina (3,1,3,0)
-# australia (3,0,3,0)
-# canada (3,0.5.0)
-# colombia (3,1,3,0)
-# ecuador (3,0,3,0)
-# ethiopia (3,0,3,0)
-# france (3,0,3,0)
-# germany (4,0,3,0)
-# india (3,0,3,0)
-# italy (3,0,3,0)
-# japan (3,0,3,0)
-# mexico (3,0,3,0)
-# morocco (3,0,3,0)
-# pakistan (3,0,3,0)
-# philippines (3,0,3,0)
-# russia (3,0,3,0)
-# saudi arabia (3,0,3,0)
-# south africa (3,0,3,0)
-# south korea (4,0,3,0)
-# sri lanka (3,1,3,0)
-# turkey (3,1,3,0)
-# united kingdom (3,1,3,0)
-# United States (3,1,3,0)
+
+
+
+
+
+
+
+
+
+# 4. Fit Best Model
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 3,
+  non_seasonal_ar = 5, non_seasonal_differences = 0, non_seasonal_ma = 3,
   seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
 autoarima_wflow = workflow() %>%
-  add_model(autoarima_model) %>%
-  add_recipe(autoarima_recipe)
+  add_model(arima_model) %>%
+  add_recipe(arima_recipe)
 
 autoarima_fit = fit(autoarima_wflow, data = train_lm_fix)
 final_train = train_lm_fix %>%
@@ -185,44 +164,13 @@ final_train = train_lm_fix %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
 
-# error model
-ggplot(final_train) +
-  geom_line(aes(date, err), color = 'blue') +
-  geom_line(aes(date, pred_err), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log Error vs Log Error Prediction")
-# prediction models
-# initial prediction with just linear trend
-ggplot(final_train) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with only linear trend")
-ggplot(final_train) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(trend)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only linear trend")
-# final prediction with linear trend + arima error modelling
-ggplot(final_train) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with linear trend + arima")
-ggplot(final_train) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(pred)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with linear trend + arima")
 
 library(ModelMetrics)
 # rmse of error prediction
 rmse(final_train$err, final_train$pred_err)
 # rmse of just linear trend
-rmse(final_train$value, final_train$trend)
 rmse(exp(final_train$value), exp(final_train$trend))
 # rmse of linear trend + arima
-rmse(final_train$value, final_train$pred)
 rmse(exp(final_train$value), exp(final_train$pred))
 
 
@@ -233,44 +181,15 @@ final_test = test_lm_fix %>%
   rename(pred_err = .pred) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
-# initial prediction with just linear trend
-ggplot(final_test) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with only linear trend")
-ggplot(final_test) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(trend)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only linear trend")
-# final prediction with linear trend + arima error modelling
-ggplot(final_test) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with linear trend + arima")
-ggplot(final_test) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(pred)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with linear trend + arima")
 
 # rmse of just linear trend
-rmse(final_test$value, final_test$trend)
 rmse(exp(final_test$value), exp(final_test$trend))
 # rmse of linear trend + arima
-rmse(final_test$value, final_test$pred)
 rmse(exp(final_test$value), exp(final_test$pred))
 
 
 
-
-
-
-
 # plot
-
 x = final_train %>% 
   select(date, value, pred) %>%
   pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
@@ -288,7 +207,7 @@ ggplot(x, aes(date, exp(value))) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Training: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    subtitle = "Linear Trend + AutoARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -319,7 +238,7 @@ ggplot(y, aes(date, exp(value))) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Testing: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    subtitle = "Linear Trend + AutoARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(

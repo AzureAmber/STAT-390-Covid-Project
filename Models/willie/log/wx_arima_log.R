@@ -13,7 +13,9 @@ train_lm = readRDS('data/finalized_data/final_train_lm.rds')
 test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
 # weekly rolling sum of log of new cases
-complete_lm = train_lm %>% rbind(test_lm) %>%
+# Remove observations before first apperance of COVID: 2020-01-04
+complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
+  filter(date >= as.Date("2020-01-04")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   mutate(
@@ -163,29 +165,6 @@ autoplot(arima_tuned, metric = "rmse")
 
 
 # 4. Fit Best Model
-# Argentina (5,1,4,0)
-# Australia (5,1,3,0)
-# Canada (3,0,4,2)
-# Colombia (5,1,3,0)
-# Ecuador (5,0,4,0)
-# Ethiopia (3,1,3,0)
-# France (4,1,3,0)
-# Germany (5,0,3,1)
-# India (5,0,5,0)
-# Italy (3,1,4,0)
-# Japan (5,1,4,0)
-# Mexico (5,1,4,0)
-# Morocco (4,0,3,0)
-# Pakistan (3,0,4,0)
-# Philippines (5,1,4,0)
-# Russia (5,1,4,1)
-# Saudi Arabia (4,1,5,1)
-# South Africa (3,0,3,0)
-# South Korea (4,0,4,0)
-# Sri Lanka (3,2,5,0)
-# Turkey (4,2,4,0)
-# United Kingdom (4,0,5,0)
-# United States (5,0,3,0)
 arima_model = arima_reg(
   seasonal_period = "auto",
   non_seasonal_ar = 5, non_seasonal_differences = 0, non_seasonal_ma = 3,
@@ -203,27 +182,6 @@ final_train = train_lm_fix %>%
   mutate_if(is.numeric, round, 5)
 
 
-
-# error model
-ggplot(final_train) +
-  geom_line(aes(date, err), color = 'blue') +
-  geom_line(aes(date, pred_err), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log Error vs Log Error Prediction")
-# prediction models
-# initial prediction with just linear trend
-ggplot(final_train) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(trend)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only linear trend")
-# final prediction with linear trend + arima error modelling
-ggplot(final_train) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(pred)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with linear trend + arima")
-
 library(ModelMetrics)
 # rmse of error prediction
 rmse(final_train$err, final_train$pred_err)
@@ -236,48 +194,19 @@ rmse(exp(final_train$value), exp(final_train$pred))
 
 # Testing set
 final_test = test_lm_fix %>%
-  bind_cols(predict(autoarima_fit, new_data = test_lm_fix)) %>%
+  bind_cols(predict(arima_fit, new_data = test_lm_fix)) %>%
   rename(pred_err = .pred) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
-# initial prediction with just linear trend
-ggplot(final_test) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, trend), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with only linear trend")
-ggplot(final_test) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(trend)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with only linear trend")
-# final prediction with linear trend + arima error modelling
-ggplot(final_test) +
-  geom_line(aes(date, value), color = 'blue') +
-  geom_line(aes(date, pred), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Log prediction with linear trend + arima")
-ggplot(final_test) +
-  geom_line(aes(date, exp(value)), color = 'blue') +
-  geom_line(aes(date, exp(pred)), color = 'red', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  labs(title = "Prediction with linear trend + arima")
 
 # rmse of just linear trend
-rmse(final_test$value, final_test$trend)
 rmse(exp(final_test$value), exp(final_test$trend))
 # rmse of linear trend + arima
-rmse(final_test$value, final_test$pred)
 rmse(exp(final_test$value), exp(final_test$pred))
 
 
 
-
-
-
-
 # plot
-
 x = final_train %>% 
   select(date, value, pred) %>%
   pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%

@@ -13,7 +13,9 @@ final_train_lm = readRDS('data/avg_final_data/final_train_lm.rds')
 final_test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
 
 # weekly rolling average of new cases
+# Remove observations before first appearance of COVID: 2020-01-04
 complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
+  filter(date >= as.Date("2020-01-04")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
@@ -61,6 +63,7 @@ for (i in country_names) {
   train_lm_fix_init <<- rbind(train_lm_fix_init, x %>% filter(date < as.Date("2023-01-01")))
   test_lm_fix_init <<- rbind(test_lm_fix_init, x %>% filter(date >= as.Date("2023-01-01")))
 }
+
 # plot of original data and trend
 ggplot(train_lm_fix_init %>% filter(location == "United States")) +
   geom_line(aes(date, value), color = 'blue') +
@@ -70,8 +73,8 @@ ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)
 
 # 3 AutoARIMA model for US data
 # Find best arima parameters to model the error after removing trend
-train_lm_fix = train_lm_fix_init %>% filter(location == "Ecuador")
-test_lm_fix = test_lm_fix_init %>% filter(location == "Ecuador")
+train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
+test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
 
 data_folds = rolling_origin(
   train_lm_fix,
@@ -145,9 +148,12 @@ autoplot(autoarima_tuned, metric = "rmse")
 
 
 # 4. Fit Best Model
+train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
+test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
+
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 0, non_seasonal_differences = 0, non_seasonal_ma = 4,
+  non_seasonal_ar = 0, non_seasonal_differences = 1, non_seasonal_ma = 2,
   seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
