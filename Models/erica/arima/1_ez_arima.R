@@ -173,7 +173,6 @@ arima_tuned <- tune_grid(
   metrics = metric_set(yardstick::rmse)
 )
 
-save(arima_tuned, file = "Models/erica/results/arima/arima_tuned.rda")
 
 stopCluster(cores.cluster)
 
@@ -199,8 +198,19 @@ dev.off()
 # 7. fit train and predict test
 
 
-arima_wflow_tuned <- arima_wflow %>%
-  finalize_workflow(select_best(arima_tuned, metric = "rmse"))
+arima_model_us <- arima_reg(
+  seasonal_period = "auto",
+  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 2,
+  seasonal_ar = 2, seasonal_differences = 0, seasonal_ma = 0) %>%
+  set_engine('arima')
+
+arima_recipe_us <- recipe(err ~ date, data = train_lm_fix_United.States)
+
+
+arima_wflow_tuned <- workflow() %>%
+  add_model(arima_model_us) %>%
+  add_recipe(arima_recipe_us)
+
 
 arima_fit_us <- fit(arima_wflow_tuned, train_lm_fix_United.States)
 
@@ -361,7 +371,55 @@ for (location in country_names) {
     rmse_trend_test <- ModelMetrics::rmse(final_test$value, final_test$trend)
     rmse_pred_test <- ModelMetrics::rmse(final_test$value, final_test$pred)
     
-    # Rest of your code for processing and calculating RMSE...
+    # Check if the final_train and final_test data frames are available
+    if (exists("final_train") && exists("final_test")) {
+      # Plot for training data
+      train_plot <- ggplot(final_train, aes(x=date)) +
+        geom_line(aes(y = value, color = "Actual New Cases")) +
+        geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+        scale_y_continuous(n.breaks = 15) + 
+        scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+        theme_minimal() + 
+        labs(x = "Date", 
+             y = "New Cases", 
+             title = paste0("Training: Actual vs. Predicted New Cases in ", location),
+             subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,0,2), (P,D,Q) = (2,0,0))",
+             caption = "ARIMA",
+             color = "") + 
+        theme(plot.title = element_text(face = "bold", hjust = 0.5),
+              plot.subtitle = element_text(face = "italic", hjust = 0.5),
+              legend.position = "bottom",
+              panel.grid.minor = element_blank()) +
+        scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+      
+      # Plot for testing data
+      test_plot <- ggplot(final_test, aes(x=date)) +
+        geom_line(aes(y = value, color = "Actual New Cases")) +
+        geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+        scale_y_continuous(n.breaks = 15) + 
+        scale_x_date(date_breaks = "1 months", date_labels = "%b %y") +
+        theme_minimal() + 
+        labs(x = "Date", 
+             y = "New Cases", 
+             title = paste0("Testing: Actual vs. Predicted New Cases in ", location),
+             subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,0,2), (P,D,Q) = (2,0,0))",
+             caption = "ARIMA",
+             color = "") + 
+        theme_light()+
+        theme(plot.title = element_text(face = "bold", hjust = 0.5),
+              plot.subtitle = element_text(face = "italic", hjust = 0.5),
+              legend.position = "bottom",
+              panel.grid.minor = element_blank()) +
+        scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+      
+      ggsave(train_plot, file = paste0("Results/erica/arima/", location,"_train_pred",  ".jpeg"),
+             width=8, height =7, dpi = 300)
+      ggsave(test_plot, file = paste0("Results/erica/arima/", location, "_test_pred", ".png"),
+             width=8, height = 7, dpi =300)
+      
+    } else {
+      message("Final train/test data not available for ", location)
+    }
     
     # Append results to the tibble
     rmse_results <- rbind(rmse_results, 
@@ -377,182 +435,13 @@ for (location in country_names) {
 }
 
 print(rmse_results)
-write.csv(rmse_results, "rmse_results.csv", row.names = FALSE)
+write.csv(rmse_results, "Results/erica/arima/rmse_results.csv", row.names = FALSE)
 
 
-
-
-
-
-
-
-
-
-for(country in country_names){
-  # Create plot for the current country
-  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country, "in 2023")
-  file_name <- paste("Results/cindy/prophet_multi/training_plots/prophet_multi_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
-  
-  prophet_multi_country <- ggplot(prophet_train_results %>% filter(location == country)) +
-    geom_line(aes(x = date, y = new_cases, color = "Actual New Cases")) +
-    geom_line(aes(x = date, y = pred, color = "Predicted New Cases"), linetype = "dashed") +
-    scale_y_continuous(n.breaks = 15) + 
-    scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
-    theme_minimal() + 
-    labs(x = "Date", 
-         y = "New Cases", 
-         title = plot_name,
-         subtitle = "prophet_reg(changepoint_num = 0, changepoint_range = 0.6,
-         prior_scale_changepoints = 100, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001)",
-         caption = "Prophet Multivariate",
-         color = "") + 
-    theme(plot.title = element_text(face = "bold", hjust = 0.5),
-          plot.subtitle = element_text(face = "italic", hjust = 0.5),
-          legend.position = "bottom",
-          panel.grid.minor = element_blank()) +
-    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
-  
-  
-  # Save the plot with specific dimensions
-  ggsave(file_name, prophet_multi_country, width = 10, height = 6)
-}
 
 
 ## Error fitting model: non-finite finite-difference value:
-## Canada, Morocco, Phillippines, South Africa
-
-## Argentina
-
-# 4. Define model, recipe, and workflow
-
-## determine p, d, q by looking at auto.arima()
-
-train_lm_fix_Argentina %>% 
-  select(err) %>% 
-  ts() %>% 
-  auto.arima() %>% 
-  summary()  # 3,0,2
-
-arima_model_arg <- arima_reg(
-  seasonal_period = "auto",
-  non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 2,
-  seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
-  set_engine('arima')
-
-arima_recipe_arg <- recipe(err ~ date, data = train_lm_fix_Argentina)
-
-
-#arima_recipe %>% prep() %>% bake(new_data = NULL)
-
-
-arima_wflow_arg <- workflow() %>%
-  add_model(arima_model_arg) %>%
-  add_recipe(arima_recipe_arg)
-
-
-
-# 5. Setup tuning grid
-arima_params_arg <- arima_wflow_arg %>%
-  extract_parameter_set_dials() %>%
-  update(
-    seasonal_ar = non_seasonal_ar(c(0, 2)),
-    seasonal_ma = non_seasonal_ma(c(0, 2)),
-    seasonal_differences = seasonal_differences(c(0,1))
-  )
-arima_grid_arg <- grid_regular(arima_params_arg, levels = 3)
-
-# 6. Model Tuning
-# Setup parallel processing
-# detectCores(logical = FALSE)
-cores.cluster <- makePSOCKcluster(6)
-registerDoParallel(cores.cluster)
-
-arima_tuned_arg <- tune_grid(
-  arima_wflow_arg,
-  resamples = data_folds,
-  grid = arima_grid_arg,
-  control = control_grid(save_pred = TRUE,
-                         save_workflow = FALSE,
-                         parallel_over = "everything"),
-  metrics = metric_set(yardstick::rmse)
-)
-
-save(arima_tuned_arg, file = "Models/erica/results/arima_tuned_arg.rda")
-
-stopCluster(cores.cluster)
-
-arima_tuned_arg %>% collect_metrics() %>%
-  relocate(mean) %>%
-  group_by(.metric) %>%
-  arrange(mean)
-
-# 7. Results
-arima_autoplot_arg <- autoplot(arima_tuned_arg, metric = "rmse")
-show_best(arima_tuned_arg, metric = "rmse")
-
-#save autoplot
-jpeg("Models/erica/results/arima_autoplot_arg.jpeg", width = 8, height = 6, units = "in", res = 300)
-# Print the plot to the device
-print(arima_autoplot_arg)
-# Close the device
-dev.off()
-
-# 7. fit train and predict test
-
-arima_wflow_tuned_arg <- arima_wflow_arg %>%
-  finalize_workflow(select_best(arima_tuned_arg, metric = "rmse"))
-
-arima_fit_arg <- fit(arima_wflow_tuned_arg, train_lm_fix_Argentina)
-
-final_train_arg <- train_lm_fix_Argentina %>%
-  bind_cols(pred_err = arima_fit_arg$fit$fit$fit$data$.fitted) %>%
-  mutate(pred = trend + pred_err) %>%
-  mutate_if(is.numeric, round, 5)
-
-
-# prediction model
-final_train_arg %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "train_actual")) + 
-  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
-  labs(title = "ARIMA Model Fit vs Actual Data (Argentina)",
-       y = "New Cases", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
-
-
-# rmse of linear trend + arima
-ModelMetrics::rmse(final_train_arg$value, final_train_arg$pred) #3652.457
-
-
-# Testing set
-final_test_arg <- test_lm_fix_Argentina %>%
-  bind_cols(predict(arima_fit_arg, new_data = test_lm_fix_Argentina)) %>%
-  rename(pred_err = .pred) %>%
-  mutate(pred = trend + pred_err) %>%
-  mutate_if(is.numeric, round, 5)
-
-
-# final prediction with linear trend + arima error modelling
-
-final_test_arg %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "test_actual")) + 
-  geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("test_actual" = "red", "test_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("test_actual" = "Test Actual", "test_pred" = "Test Predicted")) +
-  labs(title = "Linear Trend + arima Testing (Argentina)",
-       y = "Value", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
-
-# rmse of linear trend + arima
-ModelMetrics::rmse(final_test_arg$value, final_test_arg$pred) #18566.12
-
+## Australia, Canada, Morocco, Philippines, South Africa
 
 
 ### Australia
@@ -564,11 +453,11 @@ train_lm_fix_Australia %>%
   select(err) %>% 
   ts() %>% 
   auto.arima() %>% 
-  summary()  # 2,1,1
+  summary()  # 2,1,2
 
 arima_model_aus <- arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 2, non_seasonal_differences = 1, non_seasonal_ma = 1,
+  non_seasonal_ar = 2, non_seasonal_differences = 1, non_seasonal_ma = 2,
   seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
   set_engine('arima')
 
@@ -581,7 +470,6 @@ arima_recipe_aus <- recipe(err ~ date, data = train_lm_fix_Australia)
 arima_wflow_aus <- workflow() %>%
   add_model(arima_model_aus) %>%
   add_recipe(arima_recipe_aus)
-
 
 
 # 5. Setup tuning grid
@@ -610,7 +498,6 @@ arima_tuned_aus <- tune_grid(
   metrics = metric_set(yardstick::rmse)
 )
 
-save(arima_tuned_aus, file = "Models/erica/results/arima_tuned_aus.rda")
 
 stopCluster(cores.cluster)
 
@@ -624,16 +511,28 @@ arima_autoplot_aus <- autoplot(arima_tuned_aus, metric = "rmse")
 show_best(arima_tuned_aus, metric = "rmse")
 
 #save autoplot
-jpeg("Models/erica/results/arima_autoplot_aus.jpeg", width = 8, height = 6, units = "in", res = 300)
+jpeg("Models/erica/results/arima/arima_autoplot_aus.jpeg", width = 8, height = 6, units = "in", res = 300)
 # Print the plot to the device
 print(arima_autoplot_aus)
 # Close the device
 dev.off()
 
+### (2,1,2), (0,0,0)
+
 # 7. fit train and predict test
 
-arima_wflow_tuned_aus <- arima_wflow_aus %>%
-  finalize_workflow(select_best(arima_tuned_aus, metric = "rmse"))
+arima_model_aus <- arima_reg(
+  seasonal_period = "auto",
+  non_seasonal_ar = 2, non_seasonal_differences = 1, non_seasonal_ma = 2,
+  seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
+  set_engine('arima')
+
+arima_recipe_aus <- recipe(err ~ date, data = train_lm_fix_Australia)
+
+arima_wflow_tuned_aus <- workflow() %>%
+  add_model(arima_model_aus) %>%
+  add_recipe(arima_recipe_aus)
+
 
 arima_fit_aus <- fit(arima_wflow_tuned_aus, train_lm_fix_Australia)
 
@@ -644,21 +543,31 @@ final_train_aus <- train_lm_fix_Australia %>%
 
 
 # prediction model
-final_train_aus %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "train_actual")) + 
-  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
-  labs(title = "ARIMA Model Fit vs Actual Data (Australia)",
-       y = "New Cases", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+
+Australia_train_pred <- final_train_aus %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Training: Actual vs. Predicted New Cases in Australia",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,1,2), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(Australia_train_pred, file = "Results/erica/arima/Australia_train_pred.jpeg")
 
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_aus$value, final_train_aus$pred) #3537.556
+ModelMetrics::rmse(final_train_aus$value, final_train_aus$pred) #2528.537
 
 
 # Testing set
@@ -671,138 +580,156 @@ final_test_aus <- test_lm_fix_Australia %>%
 
 # final prediction with linear trend + arima error modelling
 
-final_test_aus %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "test_actual")) + 
-  geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("test_actual" = "red", "test_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("test_actual" = "Test Actual", "test_pred" = "Test Predicted")) +
-  labs(title = "Linear Trend + arima Testing (Australia)",
-       y = "Value", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+Australia_test_pred <- final_test_aus %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "1 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Testing: Actual vs. Predicted New Cases in Australia",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,1,2), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(Australia_test_pred, file = "Results/erica/arima/Australia_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_aus$value, final_test_aus$pred) #27560.46
+ModelMetrics::rmse(final_test_aus$value, final_test_aus$pred) #23330.13
 
 
 
 
-### Germany
+### Canada
 # 4. Define model, recipe, and workflow
 
 ## determine p, d, q by looking at auto.arima()
 
-train_lm_fix_Germany %>% 
+train_lm_fix_Canada %>% 
   select(err) %>% 
   ts() %>% 
   auto.arima() %>% 
-  summary()  # 3,0,0
+  summary()  # 1,0,2
 
-arima_model_ger <- arima_reg(
+arima_model_can <- arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 0,
+  non_seasonal_ar = 1, non_seasonal_differences = 0, non_seasonal_ma = 2,
   seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
   set_engine('arima')
 
-arima_recipe_ger <- recipe(err ~ date, data = train_lm_fix_Germany)
+arima_recipe_can <- recipe(err ~ date, data = train_lm_fix_Canada)
 
-
-#arima_recipe %>% prep() %>% bake(new_data = NULL)
-
-
-arima_wflow_ger <- workflow() %>%
-  add_model(arima_model_ger) %>%
-  add_recipe(arima_recipe_ger)
-
+arima_wflow_can <- workflow() %>%
+  add_model(arima_model_can) %>%
+  add_recipe(arima_recipe_can)
 
 
 # 5. Setup tuning grid
-arima_params_ger <- arima_wflow_ger %>%
+arima_params_can <- arima_wflow_can %>%
   extract_parameter_set_dials() %>%
   update(
     seasonal_ar = non_seasonal_ar(c(0, 2)),
     seasonal_ma = non_seasonal_ma(c(0, 2)),
     seasonal_differences = seasonal_differences(c(0,1))
   )
-arima_grid_ger <- grid_regular(arima_params_ger, levels = 3)
+arima_grid_can <- grid_regular(arima_params_can, levels = 3)
 
 # 6. Model Tuning
-# Setup parallel processing
-# detectCores(logical = FALSE)
 cores.cluster <- makePSOCKcluster(6)
 registerDoParallel(cores.cluster)
 
-arima_tuned_ger <- tune_grid(
-  arima_wflow_ger,
+arima_tuned_can <- tune_grid(
+  arima_wflow_can,
   resamples = data_folds,
-  grid = arima_grid_ger,
+  grid = arima_grid_can,
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
   metrics = metric_set(yardstick::rmse)
 )
 
-save(arima_tuned_ger, file = "Models/erica/results/arima_tuned_ger.rda")
-
-load("Models/erica/results/arima/arima_tuned_ger.rda")
 
 stopCluster(cores.cluster)
 
-arima_tuned_ger %>% collect_metrics() %>%
+arima_tuned_can %>% collect_metrics() %>%
   relocate(mean) %>%
   group_by(.metric) %>%
   arrange(mean)
 
 # 7. Results
-arima_autoplot_ger <- autoplot(arima_tuned_ger, metric = "rmse")
+arima_autoplot_can <- autoplot(arima_tuned_can, metric = "rmse")
 
-show_best(arima_tuned_ger, metric = "rmse")
+show_best(arima_tuned_can, metric = "rmse")
 
 #save autoplot
-jpeg("Models/erica/results/arima_autoplot_ger.jpeg", width = 8, height = 6, units = "in", res = 300)
+jpeg("Models/erica/results/arima_autoplot_can.jpeg", width = 8, height = 6, units = "in", res = 300)
 # Print the plot to the device
-print(arima_autoplot_ger)
+print(arima_autoplot_can)
 # Close the device
 dev.off()
 
-# 7. fit train and predict test
+# 8. fit train and predict test
 
-arima_wflow_tuned_ger <- arima_wflow_ger %>%
-  finalize_workflow(select_best(arima_tuned_ger, metric = "rmse"))
+### (1,0,2), (0,0,0)
 
-arima_fit_ger <- fit(arima_wflow_tuned_ger, train_lm_fix_Germany)
+arima_model_can <- arima_reg(
+  seasonal_period = "auto",
+  non_seasonal_ar = 1, non_seasonal_differences = 0, non_seasonal_ma = 2,
+  seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
+  set_engine('arima')
 
-final_train_ger <- train_lm_fix_Germany %>%
-  bind_cols(pred_err = arima_fit_ger$fit$fit$fit$data$.fitted) %>%
+arima_recipe_can <- recipe(err ~ date, data = train_lm_fix_Canada)
+
+arima_wflow_tuned_can <- workflow() %>%
+  add_model(arima_model_can) %>%
+  add_recipe(arima_recipe_can)
+
+
+arima_fit_can <- fit(arima_wflow_tuned_can, train_lm_fix_Canada)
+
+final_train_can <- train_lm_fix_Canada %>%
+  bind_cols(pred_err = arima_fit_can$fit$fit$fit$data$.fitted) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
 
 
 # prediction model
-ger_train_pred <- final_train_ger %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "train_actual")) + 
-  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
-  labs(title = "ARIMA Model Fit vs Actual Data (Germany)",
-       y = "New Cases", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
 
-ggsave(ger_train_pred, file = "Results/erica/arima/ger_train_pred.jpeg")
+Canada_train_pred <- final_train_can %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Training: Actual vs. Predicted New Cases in Canada",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (1,0,2), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
 
+ggsave(Canada_train_pred, file = "Results/erica/arima/Canada_train_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_ger$value, final_train_ger$pred) #5770.618
+ModelMetrics::rmse(final_train_can$value, final_train_can$pred) #1188.261
 
 
 # Testing set
-final_test_ger <- test_lm_fix_Germany %>%
-  bind_cols(predict(arima_fit_ger, new_data = test_lm_fix_Germany)) %>%
+final_test_can <- test_lm_fix_Canada %>%
+  bind_cols(predict(arima_fit_can, new_data = test_lm_fix_Canada)) %>%
   rename(pred_err = .pred) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
@@ -810,22 +737,29 @@ final_test_ger <- test_lm_fix_Germany %>%
 
 # final prediction with linear trend + arima error modelling
 
-ger_test_pred <- final_test_ger %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "test_actual")) + 
-  geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("test_actual" = "red", "test_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("test_actual" = "Test Actual", "test_pred" = "Test Predicted")) +
-  labs(title = "Linear Trend + arima Testing (Germany)",
-       y = "Value", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+Canada_test_pred <- final_test_can %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Testing: Actual vs. Predicted New Cases in Canada",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (1,0,2), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
 
-ggsave(ger_test_pred, file = "Results/erica/arima/ger_test_pred.jpeg")
+ggsave(Canada_test_pred, file = "Results/erica/arima/Canada_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_ger$value, final_test_ger$pred) #106454
+ModelMetrics::rmse(final_test_can$value, final_test_can$pred) #8333.362
 
 
 ### Phillipines
@@ -837,24 +771,20 @@ train_lm_fix_Philippines %>%
   select(err) %>% 
   ts() %>% 
   auto.arima() %>% 
-  summary()  # 3,1,1
+  summary()  # 2,1,2
 
 arima_model_phi <- arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 3, non_seasonal_differences = 1, non_seasonal_ma = 1,
+  non_seasonal_ar = 2, non_seasonal_differences = 1, non_seasonal_ma = 2,
   seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
   set_engine('arima')
 
 arima_recipe_phi <- recipe(err ~ date, data = train_lm_fix_Philippines)
 
 
-#arima_recipe %>% prep() %>% bake(new_data = NULL)
-
-
 arima_wflow_phi <- workflow() %>%
   add_model(arima_model_phi) %>%
   add_recipe(arima_recipe_phi)
-
 
 
 # 5. Setup tuning grid
@@ -868,8 +798,6 @@ arima_params_phi <- arima_wflow_phi %>%
 arima_grid_phi <- grid_regular(arima_params_phi, levels = 3)
 
 # 6. Model Tuning
-# Setup parallel processing
-# detectCores(logical = FALSE)
 cores.cluster <- makePSOCKcluster(6)
 registerDoParallel(cores.cluster)
 
@@ -883,7 +811,6 @@ arima_tuned_phi <- tune_grid(
   metrics = metric_set(yardstick::rmse)
 )
 
-save(arima_tuned_phi, file = "Models/erica/results/arima_tuned_phi.rda")
 
 stopCluster(cores.cluster)
 
@@ -904,10 +831,22 @@ print(arima_autoplot_phi)
 # Close the device
 dev.off()
 
-# 7. fit train and predict test
 
-arima_wflow_tuned_phi <- arima_wflow_phi %>%
-  finalize_workflow(select_best(arima_tuned_phi, metric = "rmse"))
+# 8. fit train and predict test
+
+### (2,1,2), (0,0,0)
+
+arima_model_phi <- arima_reg(
+  seasonal_period = "auto",
+  non_seasonal_ar = 2, non_seasonal_differences = 1, non_seasonal_ma = 2,
+  seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
+  set_engine('arima')
+
+arima_recipe_phi <- recipe(err ~ date, data = train_lm_fix_Philippines)
+
+arima_wflow_tuned_phi <- workflow() %>%
+  add_model(arima_model_phi) %>%
+  add_recipe(arima_recipe_phi)
 
 arima_fit_phi <- fit(arima_wflow_tuned_phi, train_lm_fix_Philippines)
 
@@ -917,22 +856,29 @@ final_train_phi <- train_lm_fix_Philippines %>%
   mutate_if(is.numeric, round, 5)
 
 
-# prediction model
-final_train_phi %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "train_actual")) + 
-  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
-  labs(title = "ARIMA Model Fit vs Actual Data (Phillipines)",
-       y = "New Cases", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+Phillipines_train_pred <- final_train_phi %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Training: Actual vs. Predicted New Cases in Phillipines",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,1,2), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
 
+ggsave(Phillipines_train_pred, file = "Results/erica/arima/Phillipines_train_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_phi$value, final_train_phi$pred) #1492.395
+ModelMetrics::rmse(final_train_phi$value, final_train_phi$pred) #1519.059
 
 
 # Testing set
@@ -945,60 +891,69 @@ final_test_phi <- test_lm_fix_Philippines %>%
 
 # final prediction with linear trend + arima error modelling
 
-final_test_phi %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "test_actual")) + 
-  geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("test_actual" = "red", "test_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("test_actual" = "Test Actual", "test_pred" = "Test Predicted")) +
-  labs(title = "Linear Trend + arima Testing (Phillipines)",
-       y = "Value", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+Phillipines_test_pred <- final_test_phi %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "1 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Testing: Actual vs. Predicted New Cases in Phillipines",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,1,2), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(Phillipines_test_pred, file = "Results/erica/arima/Phillipines_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_phi$value, final_test_phi$pred) #4742.375
+ModelMetrics::rmse(final_test_phi$value, final_test_phi$pred) #4625.488
 
 
-### Saudi Arabia
+### Morroco
 # 4. Define model, recipe, and workflow
 
 ## determine p, d, q by looking at auto.arima()
 
-train_lm_fix_Saudi.Arabia %>% 
+train_lm_fix_Morocco %>% 
   select(err) %>% 
   ts() %>% 
   auto.arima() %>% 
-  summary()  # 1,1,1
+  summary()  # 2,0,1
 
-arima_model_saudi <- arima_reg(
+arima_model_morroco <- arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 1, non_seasonal_differences = 1, non_seasonal_ma = 1,
+  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 1,
   seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
   set_engine('arima')
 
-arima_recipe_saudi <- recipe(err ~ date, data = train_lm_fix_Saudi.Arabia)
+arima_recipe_morroco <- recipe(err ~ date, data = train_lm_fix_Morocco)
 
 
 #arima_recipe %>% prep() %>% bake(new_data = NULL)
 
 
-arima_wflow_saudi <- workflow() %>%
-  add_model(arima_model_saudi) %>%
-  add_recipe(arima_recipe_saudi)
+arima_wflow_morroco <- workflow() %>%
+  add_model(arima_model_morroco) %>%
+  add_recipe(arima_recipe_morroco)
 
 
 
 # 5. Setup tuning grid
-arima_params_saudi <- arima_wflow_saudi %>%
+arima_params_morroco <- arima_wflow_morroco %>%
   extract_parameter_set_dials() %>%
   update(
     seasonal_ar = non_seasonal_ar(c(0, 2)),
     seasonal_ma = non_seasonal_ma(c(0, 2)),
     seasonal_differences = seasonal_differences(c(0,1))
   )
-arima_grid_saudi <- grid_regular(arima_params_saudi, levels = 3)
+arima_grid_morroco <- grid_regular(arima_params_morroco, levels = 3)
 
 # 6. Model Tuning
 # Setup parallel processing
@@ -1006,93 +961,123 @@ arima_grid_saudi <- grid_regular(arima_params_saudi, levels = 3)
 cores.cluster <- makePSOCKcluster(6)
 registerDoParallel(cores.cluster)
 
-arima_tuned_saudi <- tune_grid(
-  arima_wflow_saudi,
+arima_tuned_morroco <- tune_grid(
+  arima_wflow_morroco,
   resamples = data_folds,
-  grid = arima_grid_saudi,
+  grid = arima_grid_morroco,
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
   metrics = metric_set(yardstick::rmse)
 )
 
-save(arima_tuned_saudi, file = "Models/erica/results/arima_tuned_saudi.rda")
-
 stopCluster(cores.cluster)
 
-arima_tuned_saudi %>% collect_metrics() %>%
+arima_tuned_morroco %>% collect_metrics() %>%
   relocate(mean) %>%
   group_by(.metric) %>%
   arrange(mean)
 
 # 7. Results
-arima_autoplot_saudi <- autoplot(arima_tuned_saudi, metric = "rmse")
 
-show_best(arima_tuned_saudi, metric = "rmse")
+arima_autoplot_morroco <- autoplot(arima_tuned_morroco, metric = "rmse")
+
+show_best(arima_tuned_morroco, metric = "rmse")
 
 #save autoplot
-jpeg("Models/erica/results/arima_autoplot_saudi.jpeg", width = 8, height = 6, units = "in", res = 300)
+jpeg("Models/erica/results/arima_autoplot_morroco.jpeg", width = 8, height = 6, units = "in", res = 300)
 # Print the plot to the device
-print(arima_autoplot_saudi)
+print(arima_autoplot_morroco)
 # Close the device
 dev.off()
 
-# 7. fit train and predict test
 
-arima_wflow_tuned_saudi <- arima_wflow_saudi %>%
-  finalize_workflow(select_best(arima_tuned_saudi, metric = "rmse"))
 
-arima_fit_saudi <- fit(arima_wflow_tuned_saudi, train_lm_fix_Saudi.Arabia)
+# 8. fit train and predict test
 
-final_train_saudi <- train_lm_fix_Saudi.Arabia %>%
-  bind_cols(pred_err = arima_fit_saudi$fit$fit$fit$data$.fitted) %>%
+### (2,0,1), (1,0,0)
+
+arima_model_morocco <- arima_reg(
+  seasonal_period = "auto",
+  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 1,
+  seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 0) %>%
+  set_engine('arima')
+
+arima_recipe_morocco <- recipe(err ~ date, data = train_lm_fix_Morocco)
+
+arima_wflow_tuned_morocco <- workflow() %>%
+  add_model(arima_model_morocco) %>%
+  add_recipe(arima_recipe_morocco)
+
+
+arima_fit_morocco <- fit(arima_wflow_tuned_morocco, train_lm_fix_Morocco)
+
+final_train_morocco <- train_lm_fix_Morocco %>%
+  bind_cols(pred_err = arima_fit_morocco$fit$fit$fit$data$.fitted) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
 
 
 # prediction model
-final_train_saudi %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "train_actual")) + 
-  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
-  labs(title = "ARIMA Model Fit vs Actual Data (Saudi Arabia)",
-       y = "New Cases", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+Morocco_train_pred <- final_train_morocco %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Training: Actual vs. Predicted New Cases in Morocco",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,0,1), (P,D,Q) = (1,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(Morocco_train_pred, file = "Results/erica/arima/Morocco_train_pred.jpeg")
 
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_saudi$value, final_train_saudi$pred) #224.0634
+ModelMetrics::rmse(final_train_morocco$value, final_train_morocco$pred) #355.0955
 
 
 # Testing set
-final_test_saudi <- test_lm_fix_Saudi.Arabia %>%
-  bind_cols(predict(arima_fit_saudi, new_data = test_lm_fix_Saudi.Arabia)) %>%
+final_test_morocco <- test_lm_fix_Morocco %>%
+  bind_cols(predict(arima_fit_morocco, new_data = test_lm_fix_Morocco)) %>%
   rename(pred_err = .pred) %>%
   mutate(pred = trend + pred_err) %>%
   mutate_if(is.numeric, round, 5)
 
 
-# final prediction with linear trend + arima error modelling
+# testing visualization
 
-final_test_saudi %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "test_actual")) + 
-  geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("test_actual" = "red", "test_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("test_actual" = "Test Actual", "test_pred" = "Test Predicted")) +
-  labs(title = "Linear Trend + arima Testing (Saudi Arabia)",
-       y = "Value", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+Morocco_test_pred <- final_test_morocco %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "1 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Testing: Actual vs. Predicted New Cases in Morocco",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,0,1), (P,D,Q) = (1,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(Morocco_test_pred, file = "Results/erica/arima/Morocco_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_saudi$value, final_test_saudi$pred) #1103.035
-
+ModelMetrics::rmse(final_test_morocco$value, final_test_morocco$pred) #1449.738
 
 
 ### South Africa
@@ -1100,8 +1085,91 @@ ModelMetrics::rmse(final_test_saudi$value, final_test_saudi$pred) #1103.035
 
 ## determine p, d, q by looking at auto.arima()
 
+train_lm_fix_South.Africa %>% 
+  select(err) %>% 
+  ts() %>% 
+  auto.arima() %>% 
+  summary()  # 3,0,3
 
-arima_fit_safrica <- fit(arima_wflow_tuned_saudi, train_lm_fix_South.Africa)
+arima_model_safrica <- arima_reg(
+  seasonal_period = "auto",
+  non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 3,
+  seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
+  set_engine('arima')
+
+arima_recipe_safrica <- recipe(err ~ date, data = train_lm_fix_South.Africa)
+
+
+arima_wflow_safrica <- workflow() %>%
+  add_model(arima_model_safrica) %>%
+  add_recipe(arima_recipe_safrica)
+
+
+
+# 5. Setup tuning grid
+arima_params_safrica <- arima_wflow_safrica %>%
+  extract_parameter_set_dials() %>%
+  update(
+    seasonal_ar = non_seasonal_ar(c(0, 2)),
+    seasonal_ma = non_seasonal_ma(c(0, 2)),
+    seasonal_differences = seasonal_differences(c(0,1))
+  )
+arima_grid_safrica <- grid_regular(arima_params_safrica, levels = 3)
+
+# 6. Model Tuning
+cores.cluster <- makePSOCKcluster(6)
+registerDoParallel(cores.cluster)
+
+arima_tuned_safrica <- tune_grid(
+  arima_wflow_safrica,
+  resamples = data_folds,
+  grid = arima_grid_safrica,
+  control = control_grid(save_pred = TRUE,
+                         save_workflow = FALSE,
+                         parallel_over = "everything"),
+  metrics = metric_set(yardstick::rmse)
+)
+
+stopCluster(cores.cluster)
+
+arima_tuned_safrica %>% collect_metrics() %>%
+  relocate(mean) %>%
+  group_by(.metric) %>%
+  arrange(mean)
+
+# 7. Results
+
+arima_autoplot_safrica <- autoplot(arima_tuned_safrica, metric = "rmse")
+
+show_best(arima_tuned_safrica, metric = "rmse")
+
+#save autoplot
+jpeg("Models/erica/results/arima_autoplot_safrica.jpeg", width = 8, height = 6, units = "in", res = 300)
+# Print the plot to the device
+print(arima_autoplot_safrica)
+# Close the device
+dev.off()
+
+
+
+# 8. fit train and predict test
+
+### (3,0,3), (0,0,0)
+
+arima_model_safrica <- arima_reg(
+  seasonal_period = "auto",
+  non_seasonal_ar = 3, non_seasonal_differences = 0, non_seasonal_ma = 3,
+  seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
+  set_engine('arima')
+
+arima_recipe_safrica <- recipe(err ~ date, data = train_lm_fix_South.Africa)
+
+arima_wflow_tuned_safrica <- workflow() %>%
+  add_model(arima_model_safrica) %>%
+  add_recipe(arima_recipe_safrica)
+
+
+arima_fit_safrica <- fit(arima_wflow_tuned_safrica, train_lm_fix_South.Africa)
 
 
 final_train_safrica <- train_lm_fix_South.Africa %>%
@@ -1111,21 +1179,31 @@ final_train_safrica <- train_lm_fix_South.Africa %>%
 
 
 # prediction model
-final_train_safrica %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "train_actual")) + 
-  geom_line(aes(y = pred, color = "train_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("train_actual" = "red", "train_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("train_actual" = "Train Actual", "train_pred" = "Train Predicted")) +
-  labs(title = "ARIMA Model Fit vs Actual Data (South Africa)",
-       y = "New Cases", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+safrica_train_pred <- final_train_safrica %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Training: Actual vs. Predicted New Cases in South Africa",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (3,0,3), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(safrica_train_pred, file = "Results/erica/arima/South Africa_train_pred.jpeg")
+
 
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_safrica$value, final_train_safrica$pred) #1310.274
+ModelMetrics::rmse(final_train_safrica$value, final_train_safrica$pred) #1179.209
 
 
 # Testing set
@@ -1139,20 +1217,31 @@ final_test_safrica <- test_lm_fix_South.Africa %>%
 
 # final prediction with linear trend + arima error modelling
 
-final_test_safrica %>%
-  ggplot(aes(x = date)) +
-  geom_line(aes(y = value, color = "test_actual")) + 
-  geom_line(aes(y = pred, color = "test_pred"), linetype = "dashed") + 
-  scale_color_manual(values = c("test_actual" = "red", "test_pred" = "blue"),
-                     name = "Data", 
-                     labels = c("test_actual" = "Test Actual", "test_pred" = "Test Predicted")) +
-  labs(title = "Linear Trend + arima Testing (South Africa)",
-       y = "Value", x = "Date") +
-  theme_minimal() +
-  scale_y_continuous(n.breaks = 15)
+# testing visualization
+
+safrica_test_pred <- final_test_safrica %>% 
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = value, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) + 
+  scale_x_date(date_breaks = "1 months", date_labels = "%b %y") +
+  theme_minimal() + 
+  labs(x = "Date", 
+       y = "New Cases", 
+       title = "Testing: Actual vs. Predicted New Cases in South Africa",
+       subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (3,0,3), (P,D,Q) = (0,0,0))",
+       caption = "ARIMA",
+       color = "") + 
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(safrica_test_pred, file = "Results/erica/arima/South Africa_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_safrica$value, final_test_safrica$pred) #6863.421
+ModelMetrics::rmse(final_test_safrica$value, final_test_safrica$pred) #3241.057
 
 
 
