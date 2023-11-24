@@ -414,7 +414,7 @@ for (location in country_names) {
       
       ggsave(train_plot, file = paste0("Results/erica/arima/", location,"_train_pred",  ".jpeg"),
              width=8, height =7, dpi = 300)
-      ggsave(test_plot, file = paste0("Results/erica/arima/", location, "_test_pred", ".png"),
+      ggsave(test_plot, file = paste0("Results/erica/arima/", location, "_test_pred", ".jpeg"),
              width=8, height = 7, dpi =300)
       
     } else {
@@ -433,9 +433,6 @@ for (location in country_names) {
     message("Error fitting model for ", location, ": ", e$message)
   })
 }
-
-print(rmse_results)
-write.csv(rmse_results, "Results/erica/arima/rmse_results.csv", row.names = FALSE)
 
 
 
@@ -567,7 +564,7 @@ ggsave(Australia_train_pred, file = "Results/erica/arima/Australia_train_pred.jp
 
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_aus$value, final_train_aus$pred) #2528.537
+Australia_train_rmse <- ModelMetrics::rmse(final_train_aus$value, final_train_aus$pred) #2528.537
 
 
 # Testing set
@@ -602,7 +599,7 @@ Australia_test_pred <- final_test_aus %>%
 ggsave(Australia_test_pred, file = "Results/erica/arima/Australia_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_aus$value, final_test_aus$pred) #23330.13
+Australia_test_rmse <- ModelMetrics::rmse(final_test_aus$value, final_test_aus$pred) #23330.13
 
 
 
@@ -724,7 +721,7 @@ Canada_train_pred <- final_train_can %>%
 ggsave(Canada_train_pred, file = "Results/erica/arima/Canada_train_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_can$value, final_train_can$pred) #1188.261
+Canada_train_rmse <- ModelMetrics::rmse(final_train_can$value, final_train_can$pred) #1188.261
 
 
 # Testing set
@@ -759,10 +756,10 @@ Canada_test_pred <- final_test_can %>%
 ggsave(Canada_test_pred, file = "Results/erica/arima/Canada_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_can$value, final_test_can$pred) #8333.362
+Canada_test_rmse <- ModelMetrics::rmse(final_test_can$value, final_test_can$pred) #8333.362
 
 
-### Phillipines
+### Philippines
 # 4. Define model, recipe, and workflow
 
 ## determine p, d, q by looking at auto.arima()
@@ -878,7 +875,7 @@ Phillipines_train_pred <- final_train_phi %>%
 ggsave(Phillipines_train_pred, file = "Results/erica/arima/Phillipines_train_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_phi$value, final_train_phi$pred) #1519.059
+Philippines_train_rmse <- ModelMetrics::rmse(final_train_phi$value, final_train_phi$pred) #1519.059
 
 
 # Testing set
@@ -913,7 +910,7 @@ Phillipines_test_pred <- final_test_phi %>%
 ggsave(Phillipines_test_pred, file = "Results/erica/arima/Phillipines_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_phi$value, final_test_phi$pred) #4625.488
+Philippines_test_rmse <- ModelMetrics::rmse(final_test_phi$value, final_test_phi$pred) #4625.488
 
 
 ### Morroco
@@ -1042,7 +1039,8 @@ ggsave(Morocco_train_pred, file = "Results/erica/arima/Morocco_train_pred.jpeg")
 
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_morocco$value, final_train_morocco$pred) #355.0955
+
+Morocco_train_rmse <- ModelMetrics::rmse(final_train_morocco$value, final_train_morocco$pred) #355.0955
 
 
 # Testing set
@@ -1077,7 +1075,7 @@ Morocco_test_pred <- final_test_morocco %>%
 ggsave(Morocco_test_pred, file = "Results/erica/arima/Morocco_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_morocco$value, final_test_morocco$pred) #1449.738
+Morocco_test_rmse <- ModelMetrics::rmse(final_test_morocco$value, final_test_morocco$pred) #1449.738
 
 
 ### South Africa
@@ -1203,7 +1201,7 @@ ggsave(safrica_train_pred, file = "Results/erica/arima/South Africa_train_pred.j
 
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_train_safrica$value, final_train_safrica$pred) #1179.209
+safrica_train_rmse <- ModelMetrics::rmse(final_train_safrica$value, final_train_safrica$pred) #1179.209
 
 
 # Testing set
@@ -1241,7 +1239,24 @@ safrica_test_pred <- final_test_safrica %>%
 ggsave(safrica_test_pred, file = "Results/erica/arima/South Africa_test_pred.jpeg")
 
 # rmse of linear trend + arima
-ModelMetrics::rmse(final_test_safrica$value, final_test_safrica$pred) #3241.057
+safrica_test_rmse <- ModelMetrics::rmse(final_test_safrica$value, final_test_safrica$pred) #3241.057
+
+
+## Australia, Canada, Morocco, Philippines, South Africa
+
+additional_rows <- tibble(
+  country = c("Australia", "Canada", "Morocco", "Philippines", "South Africa"),
+  rmse_pred_train = c(2528.537, 1188.261, 355.0955, 1519.059, 1179.209),
+  rmse_pred_test = c(23330.13, 8333.362, 1449.738, 4625.488, 3241.057),
+)
+
+
+# Add the new rows to rmse_results
+rmse_results <- bind_rows(rmse_results, additional_rows) %>% 
+  arrange(country)
+
+write.csv(rmse_results, "Results/erica/arima/rmse_results.csv", row.names = FALSE)
+
 
 
 

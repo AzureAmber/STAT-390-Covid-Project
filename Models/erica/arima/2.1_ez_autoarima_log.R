@@ -9,8 +9,8 @@ library(RcppRoll)
 
 
 # 1. Read in data
-train_lm <- readRDS('data/finalized_data/final_train_lm.rds')
-test_lm <- readRDS('data/finalized_data/final_test_lm.rds')
+train_lm <- readRDS('data/avg_final_data/final_train_lm.rds')
+test_lm <- readRDS('data/avg_final_data/final_test_lm.rds')
 
 # weekly rolling average of log of new cases
 complete_lm <- train_lm %>% rbind(test_lm) %>%
@@ -27,11 +27,29 @@ complete_lm <- train_lm %>% rbind(test_lm) %>%
     seasonality_group = row_number() %% 53) %>%
   ungroup() %>%
   mutate(seasonality_group = as.factor(seasonality_group))
-train_lm <- complete_lm %>% filter(date < as.Date("2023-01-01")) %>%
+
+
+# remove observations before COVID even started
+
+complete_lm %>% 
+  select(location, date, new_cases) %>% 
+  filter(date < as.Date("2023-01-01")) %>% 
+  filter(new_cases == 0) %>% 
+  view()
+
+#looks like South Korea is the country that started to have COVID cases the earliest; so we remove
+#all observations before 2020/01/23 since those would not be meaningful
+
+complete_lm_update <- complete_lm %>% 
+  filter(date > as.Date("2020-01-23"))
+
+
+# Split into train and test
+train_lm <- complete_lm_update %>% filter(date < as.Date("2023-01-01")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
-test_lm <- complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
+test_lm <- complete_lm_update %>% filter(date >= as.Date("2023-01-01")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
@@ -140,44 +158,21 @@ autoarima_tuned %>% collect_metrics() %>%
 
 # 7. Results
 autoplot(autoarima_tuned, metric = "rmse")
+best_log_combination <- show_best(autoarima_tuned, metric = "rmse")
 
 # 8. Fit Best Model
-# argentina (3,1,3,1,0,1)
-# australia (3,0,3,1,0,1)
-# canada (3,0.5,1,0,1)
-# colombia (3,1,3,1,0,1)
-# ecuador (3,0,3,1,0,1)
-# ethiopia (3,0,3,1,0,1)
-# france (3,0,3,1,0,1)
-# germany (4,0,3,1,0,1)
-# india (3,0,3,1,0,1)
-# italy (3,0,3,1,0,1)
-# japan (3,0,3,1,0,1)
-# mexico (3,0,3,1,0,1)
-# morocco (3,0,3,1,0,1)
-# pakistan (3,0,3,1,0,1)
-# philippines (3,0,3,1,0,1)
-# russia (3,0,3,1,0,1)
-# saudi arabia (3,0,3,1,0,1)
-# south africa (3,0,3,1,0,1)
-# south korea (4,0,3,1,0,1)
-# sri lanka (3,1,3,1,0,1)
-# turkey (3,1,3,1,0,1)
-# united kingdom (3,1,3,1,0,1)
-# United States (3,1,3,1,0,1)
 
-#us
 autoarima_model <- arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 3, non_seasonal_differences = 1, non_seasonal_ma = 3,
-  seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
+  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 5,
+  seasonal_ar = 1, seasonal_differences = 1, seasonal_ma = 0) %>%
   set_engine('auto_arima')
 autoarima_recipe <- recipe(err ~ date, data = train_lm_fix_United.States)
-autoarima_wflow <- workflow() %>%
+autoarima_wflow_tuned <- workflow() %>%
   add_model(autoarima_model) %>%
   add_recipe(autoarima_recipe)
 
-autoarima_fit <- fit(autoarima_wflow, data = train_lm_fix_United.States)
+autoarima_fit <- fit(autoarima_wflow_tuned, data = train_lm_fix_United.States)
 final_train <- train_lm_fix_United.States %>%
   bind_cols(pred_err = autoarima_fit$fit$fit$fit$data$.fitted) %>%
   mutate(pred = trend + pred_err) %>%
@@ -203,7 +198,7 @@ rmse(final_train$value, final_train$trend)
 rmse(exp(final_train$value), exp(final_train$trend))
 # rmse of linear trend + arima
 rmse(final_train$value, final_train$pred)
-rmse(exp(final_train$value), exp(final_train$pred))
+ModelMetrics::rmse(exp(final_train$value), exp(final_train$pred))
 
 
 
@@ -229,73 +224,126 @@ ggplot(final_test) +
 
 # rmse of linear trend + arima
 rmse(final_test$value, final_test$pred)
-rmse(exp(final_test$value), exp(final_test$pred))
+ModelMetrics::rmse(exp(final_test$value), exp(final_test$pred))
+
+
+
+#### fit train and predict test using the same model
+
+
+# for loop to fit train and predict test
+
+# Initialize an empty tibble to store RMSE results
+rmse_results <- tibble(country = character(), 
+                       rmse_pred_train = numeric(), 
+                       rmse_pred_test = numeric())
+
+for (location in country_names) {
+  ## Replace spaces with dots for the data frame names
+  location_df_name <- gsub(" ", "\\.", location)
+  
+  # Construct data frame names for train and test sets
+  train_data_name <- paste0("train_lm_fix_", location_df_name)
+  test_data_name <- paste0("test_lm_fix_", location_df_name)
+  
+  # Use tryCatch to handle errors
+  tryCatch({
+    # Check if the train data frame exists
+    if (exists(train_data_name, where = .GlobalEnv)) {
+      # Access the train and test data frames using get()
+      train_data <- get(train_data_name)
+      test_data <- get(test_data_name)
+      
+      # Fit the ARIMA model
+      autoarima_fit <- fit(autoarima_wflow_tuned, get(train_data_name))
+      
+      # Prepare training data
+      final_train <- get(train_data_name) %>%
+        bind_cols(pred_err = autoarima_fit$fit$fit$fit$data$.fitted) %>%
+        mutate(pred = trend + pred_err) %>%
+        mutate_if(is.numeric, round, 5)
+      
+      # RMSE calculations for training data
+      rmse_pred_train <- ModelMetrics::rmse(exp(final_train$value), exp(final_train$pred))
+      
+      # Prepare testing data
+      final_test <- get(test_data_name) %>%
+        bind_cols(predict(autoarima_fit, new_data = get(test_data_name))) %>%
+        rename(pred_err = .pred) %>%
+        mutate(pred = trend + pred_err) %>%
+        mutate_if(is.numeric, round, 5)
+      
+      # RMSE calculations for testing data
+      rmse_pred_test <- ModelMetrics::rmse(exp(final_test$value), exp(final_test$pred))
+      
+      # Check if the final_train and final_test data frames are available
+      if (exists("final_train") && exists("final_test")) {
+        # Plot for training data
+        train_plot <- ggplot(final_train, aes(x=date)) +
+          geom_line(aes(y = exp(value), color = "Actual New Cases")) +
+          geom_line(aes(y = exp(pred), color = "Predicted New Cases"), linetype = "dashed") +
+          scale_y_continuous(n.breaks = 15) + 
+          scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+          theme_minimal() + 
+          labs(x = "Date", 
+               y = "New Cases", 
+               title = paste0("Training: Actual vs. Predicted New Cases in ", location),
+               subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,0,5), (P,D,Q) = (1,1,0))",
+               caption = "Auto ARIMA",
+               color = "") + 
+          theme(plot.title = element_text(face = "bold", hjust = 0.5),
+                plot.subtitle = element_text(face = "italic", hjust = 0.5),
+                legend.position = "bottom",
+                panel.grid.minor = element_blank()) +
+          scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+        
+        # Plot for testing data
+        test_plot <- ggplot(final_test, aes(x=date)) +
+          geom_line(aes(y = exp(value), color = "Actual New Cases")) +
+          geom_line(aes(y = exp(pred), color = "Predicted New Cases"), linetype = "dashed") +
+          scale_y_continuous(n.breaks = 15) + 
+          scale_x_date(date_breaks = "1 months", date_labels = "%b %y") +
+          theme_minimal() + 
+          labs(x = "Date", 
+               y = "New Cases", 
+               title = paste0("Testing: Actual vs. Predicted New Cases in ", location),
+               subtitle = "arima_reg(seasonal_period=auto, (p,d,q) = (2,0,5), (P,D,Q) = (1,1,0))",
+               caption = "Auto ARIMA",
+               color = "") + 
+          theme(plot.title = element_text(face = "bold", hjust = 0.5),
+                plot.subtitle = element_text(face = "italic", hjust = 0.5),
+                legend.position = "bottom",
+                panel.grid.minor = element_blank()) +
+          scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+        
+        ggsave(train_plot, file = paste0("Results/erica/autoarima_log/", location,"_train_pred",  ".jpeg"),
+               width=8, height =7, dpi = 300)
+        ggsave(test_plot, file = paste0("Results/erica/autoarima_log/", location, "_test_pred", ".jpeg"),
+               width=8, height = 7, dpi =300)
+        
+      } else {
+        message("Final train/test data not available for ", location)
+      }
+      
+      # Append results to the tibble
+      rmse_results <- rbind(rmse_results, 
+                            tibble(country = location, 
+                                   rmse_pred_train = rmse_pred_train, 
+                                   rmse_pred_test = rmse_pred_test))
+    } else {
+      message("Data frame not found for ", location)
+    }
+  }, error = function(e) {
+    message("Error fitting model for ", location, ": ", e$message)
+  })
+}
+
+print(rmse_results)
+write.csv(rmse_results, "Results/erica/autoarima_log/autoarima_rmse_results.csv", row.names = FALSE)
 
 
 
 
-
-
-
-# plot
-
-x = final_train %>% 
-  select(date, value, pred) %>%
-  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
-  mutate(
-    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
-    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
-  )
-
-
-
-ggplot(x, aes(date, exp(value))) +
-  geom_line(aes(color = type, linetype = type)) +
-  scale_y_continuous(n.breaks = 10) + 
-  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
-  scale_color_manual(values = c("red", "blue")) +
-  labs(
-    title = "Training: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
-    x = "Date", y = "New Cases") +
-  theme_light() +
-  theme(
-    axis.text.x = element_text(angle = 20),
-    legend.title = element_blank(),
-    legend.position = "bottom",
-    plot.title = element_text(hjust = 0.5),
-    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
-
-
-
-
-
-y = final_test %>% 
-  select(date, value, pred) %>%
-  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
-  mutate(
-    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
-    type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
-  )
-
-
-
-ggplot(y, aes(date, exp(value))) +
-  geom_line(aes(color = type, linetype = type)) +
-  scale_y_continuous(n.breaks = 10) + 
-  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
-  scale_color_manual(values = c("red", "blue")) +
-  labs(
-    title = "Testing: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
-    x = "Date", y = "New Cases") +
-  theme_light() +
-  theme(
-    axis.text.x = element_text(angle = 20),
-    legend.title = element_blank(),
-    legend.position = "bottom",
-    plot.title = element_text(hjust = 0.5),
-    plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
 
 
 
