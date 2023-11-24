@@ -1,21 +1,38 @@
 library(tidyverse)
 library(tidymodels)
-library(modeltime)
 library(doParallel)
 
 # Source
-# https://www.youtube.com/watch?v=OIQPIefDxx0
-# https://www.r-bloggers.com/2020/06/introducing-modeltime-tidy-time-series-forecasting-using-tidymodels/
+# https://juliasilge.com/blog/xgboost-tune-volleyball/
 
 
 # 1. Read in data
+final_train_tree = readRDS('data/avg_final_data/final_train_tree.rds')
+final_test_tree = readRDS('data/avg_final_data/final_test_tree.rds')
+
+# add lagged predictors
 # Remove observations before first appearance of COVID: 2020-01-04
-train_lm = readRDS('data/avg_final_data/final_train_lm.rds') %>% filter(date >= as.Date("2020-01-04"))
-test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
+complete_tree = final_train_tree %>% rbind(final_test_tree) %>%
+  filter(date >= as.Date("2020-01-04")) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(
+    one_lag_wk = lag(new_cases, n = 7, default = 0),
+    two_lag_wk = lag(new_cases, n = 14, default = 0),
+    one_lag_month = lag(new_cases, n = 30, default = 0)
+  )
+train_tree = complete_tree %>% filter(date < as.Date("2023-01-01")) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
+test_tree = complete_tree %>% filter(date >= as.Date("2023-01-01")) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
-  train_lm,
+  train_tree,
   initial = 366,
   assess = 30*2,
   skip = 30*4,
@@ -23,27 +40,41 @@ data_folds = rolling_origin(
 )
 data_folds
 
+
+
+
+
 # 3. Define model, recipe, and workflow
-prophet_model = prophet_reg(
-  growth = "linear", season = "additive",
-  seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = tune(), changepoint_range = tune(), prior_scale_changepoints = tune(),
-  prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
-  set_engine('prophet')
+btree_model = boost_tree(
+  trees = tune(), tree_depth = tune(),
+  learn_rate = tune(), min_n = tune(), mtry = tune()) %>%
+  set_engine('xgboost') %>%
+  set_mode('regression')
 
-prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
-  step_corr(all_numeric_predictors(), threshold = 0.7) %>%
+# apply a log transformation to response = new_cases
+btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
+  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
+  step_rm(date) %>%
+  step_mutate(
+    G20 = ifelse(G20, 1, 0),
+    G24 = ifelse(G24, 1, 0)) %>%
   step_dummy(all_nominal_predictors())
-# View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
+# View(btree_recipe %>% prep() %>% bake(new_data = NULL))
 
-prophet_wflow = workflow() %>%
-  add_model(prophet_model) %>%
-  add_recipe(prophet_recipe)
+btree_wflow = workflow() %>%
+  add_model(btree_model) %>%
+  add_recipe(btree_recipe)
 
 # 4. Setup tuning grid
-prophet_params = prophet_wflow %>%
-  extract_parameter_set_dials()
-prophet_grid = grid_regular(prophet_params, levels = 3)
+btree_params = btree_wflow %>%
+  extract_parameter_set_dials() %>%
+  update(
+    trees = trees(c(500, 1000)),
+    min_n = min_n(c(5,15)),
+    mtry = mtry(c(5,25)),
+    tree_depth = tree_depth(c(2,20))
+  )
+btree_grid = grid_regular(btree_params, levels = 3)
 
 # 5. Model Tuning
 # Setup parallel processing
@@ -51,10 +82,10 @@ prophet_grid = grid_regular(prophet_params, levels = 3)
 cores.cluster = makePSOCKcluster(20)
 registerDoParallel(cores.cluster)
 
-prophet_tuned = tune_grid(
-  prophet_wflow,
+btree_tuned = tune_grid(
+  btree_wflow,
   resamples = data_folds,
-  grid = prophet_grid,
+  grid = btree_grid,
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
                          parallel_over = "everything"),
@@ -63,63 +94,58 @@ prophet_tuned = tune_grid(
 
 stopCluster(cores.cluster)
 
-prophet_tuned %>% collect_metrics() %>%
-  relocate(mean) %>%
+btree_tuned %>% collect_metrics() %>%
   group_by(.metric) %>%
   arrange(mean)
 
 # 6. Results
-autoplot(prophet_tuned, metric = "rmse")
+autoplot(btree_tuned, metric = "rmse")
+
+
+
+
 
 # 7. Fit Best Model
-# 0, 0.6, 100, 100, 0.001
-prophet_model = prophet_reg(
-  growth = "linear", season = "additive",
-  seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = 50, changepoint_range = 0.9, prior_scale_changepoints = 0.316,
-  prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
-  set_engine('prophet')
-prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
-  step_corr(all_numeric_predictors(), threshold = 0.7) %>%
+btree_model = boost_tree(
+  trees = 1000, tree_depth = 2,
+  learn_rate = 0.0178, min_n = 5, mtry = 25) %>%
+  set_engine('xgboost') %>%
+  set_mode('regression')
+btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
+  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
+  step_rm(date) %>%
+  step_mutate(
+    G20 = ifelse(G20, 1, 0),
+    G24 = ifelse(G24, 1, 0)) %>%
   step_dummy(all_nominal_predictors())
-prophet_wflow = workflow() %>%
-  add_model(prophet_model) %>%
-  add_recipe(prophet_recipe)
+btree_wflow = workflow() %>%
+  add_model(btree_model) %>%
+  add_recipe(btree_recipe)
 
-prophet_fit = fit(prophet_wflow, data = train_lm)
-final_train = train_lm %>%
-  bind_cols(predict(prophet_fit, new_data = train_lm)) %>%
+btree_fit = fit(btree_wflow, data = train_tree)
+final_train = train_tree %>%
+  bind_cols(predict(btree_fit, new_data = train_tree)) %>%
   rename(pred = .pred)
-final_test = test_lm %>%
-  bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
+final_test = test_tree %>%
+  bind_cols(predict(btree_fit, new_data = test_tree)) %>%
   rename(pred = .pred)
 
 
-# rmse
 library(ModelMetrics)
-result = final_train %>%
+results = final_train %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%
   arrange(location)
-result_test = final_test %>%
+results_test = final_test %>%
   group_by(location) %>%
   summarise(value = rmse(new_cases, pred)) %>%
   arrange(location)
-
-
-
-# plot
-ggplot(final_train) +
-  geom_line(aes(date, new_cases), color = 'red') +
-  geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
-  scale_y_continuous(n.breaks = 15) +
-  facet_wrap(~location, scales = "free_y")
 
 
 
 # plots
 x = final_train %>%
-  filter(location == "Germany") %>%
+  filter(location == "United States") %>%
   select(date, new_cases, pred) %>%
   pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
@@ -136,7 +162,7 @@ ggplot(x, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Training: Actual vs Predicted New Cases in United States",
-    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
+    subtitle = "boost_tree(trees = 1000, tree_depth = 20, learn_rate = 0.0178, min_n = 5, mtry = 15)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -151,7 +177,7 @@ ggplot(x, aes(date, value)) +
 
 
 y = final_test %>% 
-  filter(location == "Germany") %>%
+  filter(location == "United States") %>%
   select(date, new_cases, pred) %>%
   pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
@@ -168,7 +194,7 @@ ggplot(y, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Testing: Actual vs Predicted New Cases in United States",
-    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
+    subtitle = "boost_tree(trees = 1000, tree_depth = 20, learn_rate = 0.0178, min_n = 5, mtry = 15)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -177,6 +203,7 @@ ggplot(y, aes(date, value)) +
     legend.position = "bottom",
     plot.title = element_text(hjust = 0.5),
     plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
+
 
 
 

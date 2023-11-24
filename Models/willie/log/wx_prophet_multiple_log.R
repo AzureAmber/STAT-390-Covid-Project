@@ -31,7 +31,9 @@ prophet_model = prophet_reg(
   prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
   set_engine('prophet')
 
+# apply a log transformation to response = new_cases
 prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
+  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
   step_corr(all_numeric_predictors(), threshold = 0.7) %>%
   step_dummy(all_nominal_predictors())
 # View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
@@ -72,14 +74,14 @@ prophet_tuned %>% collect_metrics() %>%
 autoplot(prophet_tuned, metric = "rmse")
 
 # 7. Fit Best Model
-# 0, 0.6, 100, 100, 0.001
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
   seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = 50, changepoint_range = 0.9, prior_scale_changepoints = 0.316,
+  changepoint_num = 50, changepoint_range = tune(), prior_scale_changepoints = 100,
   prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
 prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
+  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
   step_corr(all_numeric_predictors(), threshold = 0.7) %>%
   step_dummy(all_nominal_predictors())
 prophet_wflow = workflow() %>%

@@ -9,18 +9,18 @@ library(RcppRoll)
 
 
 # 1. Read in data
-train_lm = readRDS('data/finalized_data/final_train_lm.rds')
-test_lm = readRDS('data/finalized_data/final_test_lm.rds')
+final_train_lm = readRDS('data/finalized_data/final_train_lm.rds')
+final_test_lm = readRDS('data/finalized_data/final_test_lm.rds')
 
 # weekly rolling sum of log of new cases
-# Remove observations before first apperance of COVID: 2020-01-04
+# Remove observations before first appearance of COVID: 2020-01-04
 complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
   filter(date >= as.Date("2020-01-04")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   mutate(
     cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0),
-    value = roll_sum(cases_log, 7, align = "right", fill = NA)) %>%
+    value = roll_mean(cases_log, 7, align = "right", fill = NA)) %>%
   mutate(value = ifelse(is.na(value), cases_log, value)) %>%
   arrange(date, .by_group = TRUE) %>%
   slice(which(row_number() %% 7 == 0)) %>%
@@ -91,7 +91,7 @@ data_folds
 autoarima_model = arima_reg(
   seasonal_period = 53,
   non_seasonal_ar = tune(), non_seasonal_differences = tune(), non_seasonal_ma = tune(),
-  seasonal_ar = 1, seasonal_differences = tune(), seasonal_ma = 1) %>%
+  seasonal_ar = tune(), seasonal_differences = tune(), seasonal_ma = tune()) %>%
   set_engine('auto_arima')
 
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -106,9 +106,11 @@ autoarima_params = autoarima_wflow %>%
   extract_parameter_set_dials() %>%
   update(
     non_seasonal_differences = non_seasonal_differences(c(0,2)),
-    non_seasonal_ar = non_seasonal_ar(c(3, 5)),
-    non_seasonal_ma = non_seasonal_ma(c(3, 5)),
-    seasonal_differences = seasonal_differences(c(0,2))
+    non_seasonal_ar = non_seasonal_ar(c(0, 4)),
+    non_seasonal_ma = non_seasonal_ma(c(0, 4)),
+    seasonal_differences = seasonal_differences(c(0,2)),
+    seasonal_ar = seasonal_ar(c(0, 2)),
+    seasonal_ma = seasonal_ma(c(0, 2))
   )
 autoarima_grid = grid_regular(autoarima_params, levels = 3)
 
@@ -148,10 +150,13 @@ autoplot(autoarima_tuned, metric = "rmse")
 
 
 # 4. Fit Best Model
+train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
+test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
+
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 5, non_seasonal_differences = 0, non_seasonal_ma = 3,
-  seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
+  non_seasonal_ar = 0, non_seasonal_differences = 1, non_seasonal_ma = 2,
+  seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
 autoarima_wflow = workflow() %>%
