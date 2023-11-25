@@ -12,14 +12,16 @@ final_test_tree = readRDS('data/avg_final_data/final_test_tree.rds')
 
 # add lagged predictors
 # Remove observations before first appearance of COVID: 2020-01-04
+# apply a log transformation to response = new_cases
 complete_tree = final_train_tree %>% rbind(final_test_tree) %>%
   filter(date >= as.Date("2020-01-04")) %>%
   group_by(location) %>%
   arrange(date, .by_group = TRUE) %>%
   mutate(
-    one_lag_wk = lag(new_cases, n = 7, default = 0),
-    two_lag_wk = lag(new_cases, n = 14, default = 0),
-    one_lag_month = lag(new_cases, n = 30, default = 0)
+    new_cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0),
+    one_lag_wk = lag(new_cases_log, n = 7, default = 0),
+    two_lag_wk = lag(new_cases_log, n = 14, default = 0),
+    one_lag_month = lag(new_cases_log, n = 30, default = 0)
   )
 train_tree = complete_tree %>% filter(date < as.Date("2023-01-01")) %>%
   group_by(location) %>%
@@ -51,9 +53,7 @@ btree_model = boost_tree(
   set_engine('xgboost') %>%
   set_mode('regression')
 
-# apply a log transformation to response = new_cases
-btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
-  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
+btree_recipe = recipe(new_cases_log ~ ., data = train_tree) %>%
   step_rm(date) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
@@ -111,8 +111,7 @@ btree_model = boost_tree(
   learn_rate = 0.0178, min_n = 5, mtry = 25) %>%
   set_engine('xgboost') %>%
   set_mode('regression')
-btree_recipe = recipe(new_cases ~ ., data = train_tree) %>%
-  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
+btree_recipe = recipe(new_cases_log ~ ., data = train_tree) %>%
   step_rm(date) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
@@ -125,9 +124,11 @@ btree_wflow = workflow() %>%
 btree_fit = fit(btree_wflow, data = train_tree)
 final_train = train_tree %>%
   bind_cols(predict(btree_fit, new_data = train_tree)) %>%
+  mutate(.pred = exp(.pred)) %>%
   rename(pred = .pred)
 final_test = test_tree %>%
   bind_cols(predict(btree_fit, new_data = test_tree)) %>%
+  mutate(.pred = exp(.pred)) %>%
   rename(pred = .pred)
 
 
