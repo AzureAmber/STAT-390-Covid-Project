@@ -16,14 +16,14 @@ library(lubridate)
 
 
 # 1. Read in data
-train_prophet <- readRDS('data/finalized_data/train_prophet.rds')
+train_prophet <- readRDS('data/avg_final_data/final_train_lm.rds')
 
 train_prophet_log <- train_prophet %>% 
   mutate(new_cases_log = log(new_cases),
          new_cases_log = ifelse(new_cases_log == -Inf, 0, new_cases_log)) %>% 
   filter(date > as.Date("2020-01-19"))
 
-test_prophet <- readRDS('data/finalized_data/test_prophet.rds')
+test_prophet <- readRDS('data/avg_final_data/final_test_lm.rds')
 
 test_prophet_log <- test_prophet %>% 
   mutate(new_cases_log = log(new_cases),
@@ -45,11 +45,18 @@ data_folds <- rolling_origin(
 
 # 3. Define model, recipe, and workflow
 prophet_log_model <- prophet_reg(
-  growth = "linear", season = "additive",
-  seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = tune(), prior_scale_changepoints = tune(),
-  prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
+  growth = "linear", 
+  season = "additive",
+  seasonality_yearly = FALSE, 
+  seasonality_weekly = FALSE, 
+  seasonality_daily = TRUE,
+  changepoint_num = tune(), 
+  changepoint_range = tune(),
+  prior_scale_changepoints = tune(),
+  prior_scale_seasonality = tune(), 
+  prior_scale_holidays = tune()) %>%
   set_engine('prophet')
+
 
 prophet_log_recipe <- recipe(new_cases ~ date + location, data = train_prophet_log) %>%
   step_dummy(all_nominal_predictors())
