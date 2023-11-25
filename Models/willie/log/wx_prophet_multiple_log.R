@@ -10,8 +10,12 @@ library(doParallel)
 
 # 1. Read in data
 # Remove observations before first appearance of COVID: 2020-01-04
-train_lm = readRDS('data/avg_final_data/final_train_lm.rds') %>% filter(date >= as.Date("2020-01-04"))
-test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
+# apply a log transformation to response = new_cases
+train_lm = readRDS('data/avg_final_data/final_train_lm.rds') %>%
+  filter(date >= as.Date("2020-01-04")) %>%
+  mutate(new_cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0))
+test_lm = readRDS('data/avg_final_data/final_test_lm.rds') %>%
+  mutate(new_cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0))
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
@@ -27,13 +31,12 @@ data_folds
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
   seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = tune(), changepoint_range = tune(), prior_scale_changepoints = tune(),
+  changepoint_num = tune(), prior_scale_changepoints = tune(),
   prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
   set_engine('prophet')
 
 # apply a log transformation to response = new_cases
-prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
-  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
+prophet_recipe = recipe(new_cases_log ~ ., data = train_lm) %>%
   step_corr(all_numeric_predictors(), threshold = 0.7) %>%
   step_dummy(all_nominal_predictors())
 # View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
@@ -77,11 +80,10 @@ autoplot(prophet_tuned, metric = "rmse")
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
   seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = 50, changepoint_range = tune(), prior_scale_changepoints = 100,
+  changepoint_num = 25, prior_scale_changepoints = 0.001,
   prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
-prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
-  step_mutate(new_cases = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>%
+prophet_recipe = recipe(new_cases_log ~ ., data = train_lm) %>%
   step_corr(all_numeric_predictors(), threshold = 0.7) %>%
   step_dummy(all_nominal_predictors())
 prophet_wflow = workflow() %>%
@@ -91,9 +93,11 @@ prophet_wflow = workflow() %>%
 prophet_fit = fit(prophet_wflow, data = train_lm)
 final_train = train_lm %>%
   bind_cols(predict(prophet_fit, new_data = train_lm)) %>%
+  mutate(.pred = exp(.pred)) %>%
   rename(pred = .pred)
 final_test = test_lm %>%
   bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
+  mutate(.pred = exp(.pred)) %>%
   rename(pred = .pred)
 
 
@@ -138,7 +142,8 @@ ggplot(x, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Training: Actual vs Predicted New Cases in United States",
-    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
+    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001,
+                \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -170,7 +175,8 @@ ggplot(y, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Testing: Actual vs Predicted New Cases in United States",
-    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
+    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001,
+                \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
