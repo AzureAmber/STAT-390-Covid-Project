@@ -116,7 +116,7 @@ ggplot(final_train) +
 
 # plots
 x = final_train %>%
-  filter(location == "Germany") %>%
+  filter(location == "United States") %>%
   select(date, new_cases, pred) %>%
   pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
@@ -148,7 +148,7 @@ ggplot(x, aes(date, value)) +
 
 
 y = final_test %>% 
-  filter(location == "Germany") %>%
+  filter(location == "United States") %>%
   select(date, new_cases, pred) %>%
   pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
