@@ -9,8 +9,8 @@ library(RcppRoll)
 
 
 # 1. Read in data
-final_train_lm = readRDS('data/finalized_data/final_train_lm.rds')
-final_test_lm = readRDS('data/finalized_data/final_test_lm.rds')
+final_train_lm = readRDS('data/avg_final_data/final_train_lm.rds')
+final_test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
 
 # weekly rolling sum of log of new cases
 # Remove observations before first appearance of COVID: 2020-01-04
@@ -155,13 +155,13 @@ test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
 
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 0, non_seasonal_differences = 1, non_seasonal_ma = 2,
+  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 2,
   seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
 autoarima_wflow = workflow() %>%
-  add_model(arima_model) %>%
-  add_recipe(arima_recipe)
+  add_model(autoarima_model) %>%
+  add_recipe(autoarima_recipe)
 
 autoarima_fit = fit(autoarima_wflow, data = train_lm_fix)
 final_train = train_lm_fix %>%
@@ -171,8 +171,6 @@ final_train = train_lm_fix %>%
 
 
 library(ModelMetrics)
-# rmse of error prediction
-rmse(final_train$err, final_train$pred_err)
 # rmse of just linear trend
 rmse(exp(final_train$value), exp(final_train$trend))
 # rmse of linear trend + arima

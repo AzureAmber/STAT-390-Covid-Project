@@ -9,8 +9,8 @@ library(RcppRoll)
 
 
 # 1. Read in data
-final_train_lm = readRDS('data/finalized_data/final_train_lm.rds')
-final_test_lm = readRDS('data/finalized_data/final_test_lm.rds')
+final_train_lm = readRDS('data/avg_final_data/final_train_lm.rds')
+final_test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
 
 # weekly rolling sum of log of new cases
 # Remove observations before first appearance of COVID: 2020-01-04
@@ -75,8 +75,8 @@ ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)
 
 # 3 ARIMA model for US data
 # Find best arima parameters to model the error after removing trend
-train_lm_fix = train_lm_fix_init %>% filter(location == "Turkey")
-test_lm_fix = test_lm_fix_init %>% filter(location == "Turkey")
+train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
+test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
 
 y = ts(data = train_lm_fix %>% select(err), start = 1, frequency = 1)
 plot(y)
@@ -172,8 +172,8 @@ test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
 
 arima_model = arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 0,
-  seasonal_ar = 2, seasonal_differences = 1, seasonal_ma = 2) %>%
+  non_seasonal_ar = 4, non_seasonal_differences = 2, non_seasonal_ma = 2,
+  seasonal_ar = 2, seasonal_differences = 1, seasonal_ma = 1) %>%
   set_engine('arima')
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
 arima_wflow = workflow() %>%
