@@ -24,7 +24,7 @@ registerDoParallel(cores.cluster)
 
 
 # 1. Read in data
-train_nn <- readRDS('data/finalized_data/final_train_nn.rds')
+train_nn <- readRDS('data/avg_final_data/final_train_nn.rds')
 train_nn <- train_nn %>% 
   group_by(location) %>% 
   arrange(location) %>% 
@@ -32,7 +32,7 @@ train_nn <- train_nn %>%
   filter(date > as.Date("2020-01-19"))
 write_csv(train_nn, file ="models/erica/train_nn.csv")
 
-test_nn <- readRDS('data/finalized_data/final_test_nn.rds') 
+test_nn <- readRDS('data/avg_final_data/final_test_nn.rds') 
 test_nn <- test_nn %>% 
   group_by(location) %>% 
   arrange(location) %>% 

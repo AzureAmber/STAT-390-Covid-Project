@@ -1,17 +1,5 @@
-# 6. Results
-prophetsingle_autoplot <- autoplot(prophet_tuned, metric = "rmse")
-prophet_single_best <- show_best(prophet_tuned, metric = "rmse")
-
-#save autoplot
-jpeg("Models/erica/results/prophet_single/prophet_single_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
-print(prophetsingle_autoplot)
-dev.off()
-
-# 7. Fit Best Model
-
-
-# changepoint_num = 25, changepoint_range = 0.9
-# prior_scale_changepoints = 0.001, prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001
+# changepoint_num = 12, changepoint_range = 0.6
+# prior_scale_changepoints = 0.001, prior_scale_seasonality = 0.0178, prior_scale_holidays = 0.001
 
 prophet_model <- prophet_reg(
   growth = "linear", 
@@ -19,21 +7,21 @@ prophet_model <- prophet_reg(
   seasonality_yearly = FALSE, 
   seasonality_weekly = FALSE, 
   seasonality_daily = TRUE,
-  changepoint_num = 100, 
-  changepoint_range = 0.9,
+  changepoint_num = 12, 
+  changepoint_range = 0.6,
   prior_scale_changepoints = 0.001,
-  prior_scale_seasonality = 0.316, 
+  prior_scale_seasonality = 0.0178, 
   prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
 
-prophet_recipe <- recipe(new_cases ~ date, data = train_prophet_us) %>%
+prophet_recipe <- recipe(new_cases ~ date, data = train_prophet_sri) %>%
   step_dummy(all_nominal_predictors())
 
 prophet_wflow_tuned <- workflow() %>%
   add_model(prophet_model) %>%
   add_recipe(prophet_recipe)
 
-prophet_fit <- fit(prophet_wflow_tuned, data = train_prophet_us)
+prophet_fit <- fit(prophet_wflow_tuned, data = train_prophet_sri)
 
 final_train <- predict(prophet_fit, new_data = train_prophet_update) %>% 
   bind_cols(train_prophet_update) %>% 
@@ -45,8 +33,8 @@ result_train <- final_train %>%
   summarize(rmse_pred_train = ModelMetrics::rmse(new_cases, pred)) %>%
   arrange(location)
 
-final_test <- test_prophet %>%
-  bind_cols(predict(prophet_fit, new_data = test_prophet)) %>%
+final_test <- test_prophet_sri %>%
+  bind_cols(predict(prophet_fit, new_data = test_prophet_sri)) %>%
   rename(pred = .pred)
 
 result_test <- final_test %>%
@@ -63,7 +51,7 @@ write.csv(results, "Results/erica/prophet_single/prophet_single_rmse_results.csv
 ## Training Visualization
 
 train_plot <- final_train %>% 
-  filter(location == "United States") %>% 
+  filter(location == "Sri Lanka") %>% 
   ggplot(aes(x=date))+
   geom_line(aes(y = new_cases, color = "Actual New Cases"))+
   geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed")+
@@ -88,7 +76,7 @@ ggsave(train_plot, file = "Results/erica/prophet_single/United States_train_pred
 
 #testing visualization
 test_plot <- final_test %>% 
-  filter(location == "United States") %>% 
+  filter(location == "Sri Lanka") %>% 
   ggplot(aes(x=date)) +
   geom_line(aes(y = new_cases, color = "Actual New Cases")) +
   geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
@@ -110,5 +98,3 @@ test_plot <- final_test %>%
 
 ggsave(test_plot, file = "Results/erica/prophet_single/Argentina_test_pred.jpeg",
        width=8, height =7, dpi = 300)
-
-

@@ -16,9 +16,8 @@ library(lubridate)
 
 
 # 1. Read in data
-train_prophet <- readRDS('data/avg_final_data/final_train_lm.rds')
-test_prophet <- readRDS('data/avg_final_data/final_test_lm.rds')
-
+train_prophet <- readRDS('data/finalized_data/final_train_lm.rds')
+test_prophet <- readRDS('data/finalized_data/final_test_lm.rds')
 
 
 #remove observations before first COVID cases
@@ -104,3 +103,7 @@ prophet_tuned %>% collect_metrics() %>%
 # 6. Results
 prophetsingle_autoplot <- autoplot(prophet_tuned, metric = "rmse")
 prophet_single_best <- show_best(prophet_tuned, metric = "rmse")
+
+
+
+
