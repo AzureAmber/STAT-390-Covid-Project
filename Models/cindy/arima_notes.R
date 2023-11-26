@@ -9,6 +9,8 @@ library(tseries)
 tidymodels_prefer()
 
 # Read in data
+train_lm_avg <- read_rds('data/avg_final_data/final_train_lm.rds')
+test_lm_avg <- read_rds('data/avg_final_data/final_test_lm.rds')
 train_lm <- read_rds('data/finalized_data/final_train_lm.rds')
 test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
 
@@ -23,8 +25,45 @@ train_lm |>
   plot_time_series(date, new_cases, .smooth = FALSE, .title = "Time Series Plot for Germany") 
 
 
-# Stationarity
-adf.test(time_series)
+# Stationarity Test ----
+# Using the new avg_final_data with weekly averages
+adf_results_avg <- train_lm_avg |> 
+  group_by(location) |> 
+  summarize(
+    adf_test = list(adf.test(new_cases, alternative = 'stationary')),
+    ADF_Statistic = adf_test[[1]]$statistic,
+    P_Value = adf_test[[1]]$p.value,
+    Stationary = adf_test[[1]]$p.value < 0.05
+  ) |> 
+  ungroup()
+
+# Using previous finalized_data
+adf_results_og <- train_lm |> 
+  group_by(location) |> 
+  summarize(
+    adf_test = list(adf.test(new_cases, alternative = 'stationary')),
+    ADF_Statistic = adf_test[[1]]$statistic,
+    P_Value = adf_test[[1]]$p.value,
+    Stationary = adf_test[[1]]$p.value < 0.05
+  ) |> 
+  ungroup()
+
+non_stationary_countries <- adf_results_avg |> 
+  filter(!Stationary) |> 
+  pull(location)
+  # Japan and Sri Lanka are non-stationary for avg_final_data
+
+adf_results_og |> 
+  filter(!Stationary) |> 
+  pull(location)
+  # Australia, France, Germany, Japan, Sri Lanka, Turkey are non-stationary for og final data
+
+# Looking at distribution of Japan and Sri Lanka
+train_lm |> 
+  filter(location == "Japan") |> 
+  ggplot(aes(new_cases)) + 
+  geom_density() + 
+  theme_minimal()
 
 # Plot ACF and PACF
 Acf(time_series)
