@@ -9,8 +9,13 @@ library(doParallel)
 
 
 # 1. Read in data
-train_lm <- readRDS('data/finalized_data/final_train_lm.rds')
-test_lm <- readRDS('data/finalized_data/final_test_lm.rds')
+train_prophet <- readRDS('data/avg_final_data/final_train_lm.rds')
+test_prophet <- readRDS('data/avg_final_data/final_test_lm.rds')
+
+
+#remove observations before first COVID cases
+train_prophet_update <- train_prophet %>% 
+  filter(date > as.Date("2020-01-19"))
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(

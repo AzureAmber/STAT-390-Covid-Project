@@ -16,18 +16,18 @@ library(lubridate)
 
 
 # 1. Read in data
-train_prophet <- readRDS('data/finalized_data/train_prophet.rds')
+train_prophet <- readRDS('data/avg_final_data/final_train_lm.rds')
+test_prophet <- readRDS('data/avg_final_data/final_test_lm.rds')
+
+#remove all observations before first COVID cases: 2020-01-19
 
 train_prophet_log <- train_prophet %>% 
-  mutate(new_cases_log = log(new_cases),
-         new_cases_log = ifelse(new_cases_log == -Inf, 0, new_cases_log)) %>% 
-  filter(date > as.Date("2020-01-19"))
+  mutate(new_cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>% 
+  filter(date >= as.Date("2020-01-19"))
 
-test_prophet <- readRDS('data/finalized_data/test_prophet.rds')
 
 test_prophet_log <- test_prophet %>% 
-  mutate(new_cases_log = log(new_cases),
-         new_cases_log = ifelse(new_cases_log == -Inf, 0, new_cases_log))
+  mutate(new_cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0))
 
 
 
@@ -45,13 +45,19 @@ data_folds <- rolling_origin(
 
 # 3. Define model, recipe, and workflow
 prophet_log_model <- prophet_reg(
-  growth = "linear", season = "additive",
-  seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = tune(), prior_scale_changepoints = tune(),
-  prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
+  growth = "linear", 
+  season = "additive",
+  seasonality_yearly = FALSE, 
+  seasonality_weekly = FALSE, 
+  seasonality_daily = TRUE,
+  changepoint_num = tune(), 
+  changepoint_range = tune(),
+  prior_scale_changepoints = tune(),
+  prior_scale_seasonality = tune(), 
+  prior_scale_holidays = tune()) %>%
   set_engine('prophet')
 
-prophet_log_recipe <- recipe(new_cases ~ date + location, data = train_prophet_log) %>%
+prophet_log_recipe <- recipe(new_cases_log ~ date + location, data = train_prophet_log) %>%
   step_dummy(all_nominal_predictors())
 # View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
 
@@ -68,7 +74,7 @@ prophet_log_grid <- grid_regular(prophet_log_params, levels = 3)
 # 5. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(4)
+cores.cluster = makePSOCKcluster(10)
 registerDoParallel(cores.cluster)
 
 prophet_log_tuned <- tune_grid(
@@ -94,53 +100,62 @@ prophetsingle_log_autoplot <- autoplot(prophet_log_tuned, metric = "rmse")
 show_best(prophet_log_tuned, metric = "rmse")
 
 # #save autoplot
-# jpeg("Models/erica/results/prophet_single_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
-# # Print the plot to the device
-# print(prophetsingle_autoplot)
-# # Close the device
+# jpeg("Models/erica/results/prophet_single/prophet_single_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
+# print(prophetsingle_log_autoplot)
 # dev.off()
 # 
+# 
 # # 7. Fit Best Model
-# # changepoint_num = 0, prior_scale_changepoints = 0.001,
-# # prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001
+# # changepoint_num = 100, changepoint_range = 0.6,
+# # prior_scale_changepoints = 100, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001
 # 
+# prophet_log_model <- prophet_reg(
+#    growth = "linear", 
+#    season = "additive",
+#    seasonality_yearly = FALSE, 
+#    seasonality_weekly = FALSE, 
+#    seasonality_daily = TRUE,
+#    changepoint_num = 100, 
+#    changepoint_range = 0.6,
+#    prior_scale_changepoints = 100,
+#    prior_scale_seasonality = 0.001, 
+#    prior_scale_holidays = 0.001) %>%
+#    set_engine('prophet')
 # 
-# prophet_wflow_tuned <- prophet_wflow %>%
-#   finalize_workflow(select_best(prophet_tuned, metric = "rmse"))
+# prophet_log_recipe <- recipe(new_cases_log ~ date + location, data = train_prophet_log) %>%
+#   step_dummy(all_nominal_predictors())
 # 
-# prophet_fit <- fit(prophet_wflow_tuned, data = train_lm)
+# prophet_log_wflow_tuned <- workflow() %>%
+#    add_model(prophet_log_model) %>%
+#    add_recipe(prophet_log_recipe)
 # 
-# final_train <- train_lm %>%
-#   bind_cols(predict(prophet_fit, new_data = train_lm)) %>%
+# prophet_log_fit <- fit(prophet_log_wflow_tuned, data = train_prophet_log)
+# 
+# final_prophet_train <- train_prophet_log %>%
+#   bind_cols(predict(prophet_log_fit, new_data = train_prophet_log)) %>% 
+#   mutate(.pred = exp(.pred))
+#   
+# 
+# final_test = test_lm %>%
+#   bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
+#   mutate(.pred = exp(.pred)) %>%
 #   rename(pred = .pred)
 # 
-# ggplot(final_train) +
-#   geom_line(aes(date, new_cases), color = 'red') +
-#   geom_line(aes(date, pred), color = 'blue', linetype = "dashed") +
-#   scale_y_continuous(n.breaks = 15) +
-#   facet_wrap(~location, scales = "free_y")
 # 
 # library(ModelMetrics)
-# result_train <- final_train %>%
-#   group_by(location) %>%
-#   summarise(value = rmse(new_cases, pred)) %>%
-#   arrange(location)
+# result_train <- final_log_train %>%
+#    group_by(location) %>%
+#    summarise(value = ModelMetrics::rmse(exp(new_cases), exp(pred))) %>%
+#    arrange(location)
+#  
 # 
-# print(result_train)
-# 
-# 
-# 
-# final_test <- test_lm %>%
-#   bind_cols(predict(prophet_fit, new_data = test_lm)) %>%
+# final_log_test <- test_prophet_log %>%
+#   bind_cols(predict(prophet_log_fit, new_data = test_prophet_log)) %>%
+#   mutate(.pred = exp(.pred)) %>% 
 #   rename(pred = .pred)
-# result_test <- final_test %>%
+# 
+# result_test <- final_log_test %>%
 #   group_by(location) %>%
-#   summarise(value = rmse(new_cases, pred)) %>%
+#   summarise(value = ModelMetrics::rmse(new_cases, pred)) %>%
 #   arrange(location)
 # 
-# 
-# 
-# 
-# 
-
-
