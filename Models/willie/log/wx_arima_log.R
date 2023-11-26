@@ -73,6 +73,32 @@ ggplot(train_lm_fix_init %>% filter(location == "United States")) +
 # plot of residual errors
 ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)) + geom_line()
 
+
+
+# stationary check
+# library(tseries)
+# data = tibble(
+#   country = numeric(23),
+#   adf = numeric(23),
+#   adf_pval = numeric(23),
+#   adf_state = numeric(23)
+# )
+# country_names = sort(unique(train_lm_fix_init$location))
+# for (i in 1:23) {
+#   dat = train_lm_fix_init %>% filter(location == country_names[i]) %>%
+#     arrange(date)
+#   x = ts(dat$err, frequency = 7)
+#   y = adf.test(x)
+#   data$country[i] = country_names[i]
+#   data$adf[i] = y$statistic
+#   data$adf_pval[i] = y$p.value
+#   data$adf_state[i] = ifelse(y$p.value <= 0.05, "Stationary", "Non-Stationary")
+# }
+
+
+
+
+
 # 3 ARIMA model for US data
 # Find best arima parameters to model the error after removing trend
 train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
@@ -226,8 +252,7 @@ ggplot(x, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Training: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    title = "Log Training: Actual vs Predicted New Cases in United States",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -257,8 +282,7 @@ ggplot(y, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Testing: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + ARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    title = "Log Testing: Actual vs Predicted New Cases in United States",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
