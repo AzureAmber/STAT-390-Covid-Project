@@ -153,11 +153,11 @@ registerDoParallel(cores.cluster)
 lstm_model = keras_model_sequential()
 lstm_model %>%
   layer_lstm(
-    units = 6, batch_input_shape = c(1, 6, 6), return_sequences = TRUE, stateful = TRUE
+    units = 50, batch_input_shape = c(1, 6, 6), return_sequences = TRUE, stateful = TRUE
   ) %>%
   layer_dropout(rate = 0.5) %>%
   layer_lstm(
-    units = 6, return_sequences = TRUE, stateful = TRUE
+    units = 50, return_sequences = TRUE, stateful = TRUE
   ) %>%
   layer_dense(units = 1)
 # compile
@@ -178,8 +178,8 @@ stopCluster(cores.cluster)
 
 
 # Prediction
-predict(lstm_model, data_train_x)
-predict(lstm_model, data_test_x)
+x = predict(lstm_model, data_train_x, batch_size = 1)
+y = predict(lstm_model, data_test_x, batch_size = 1)
 
 
 
