@@ -25,7 +25,6 @@ train_prophet_log <- train_prophet %>%
   mutate(new_cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0)) %>% 
   filter(date >= as.Date("2020-01-19"))
 
-
 test_prophet_log <- test_prophet %>% 
   mutate(new_cases_log = ifelse(is.finite(log(new_cases)), log(new_cases), 0))
 
@@ -56,6 +55,7 @@ prophet_log_model <- prophet_reg(
   prior_scale_seasonality = tune(), 
   prior_scale_holidays = tune()) %>%
   set_engine('prophet')
+
 
 prophet_log_recipe <- recipe(new_cases_log ~ date + location, data = train_prophet_log) %>%
   step_dummy(all_nominal_predictors())
