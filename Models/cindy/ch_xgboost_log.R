@@ -142,7 +142,8 @@ btree_train_results |>
   group_by(location) |>
   summarise(value = rmse(new_cases, pred)) |>
   arrange(location) |> 
-  print(n = 23)
+  print(n = 23) |> 
+  view()
 
 # location         value
 # <chr>            <dbl>

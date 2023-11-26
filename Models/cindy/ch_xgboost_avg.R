@@ -192,7 +192,7 @@ btree_pred <- predict(btree_fit, new_data = test_tree) |>
 
 # 8. Looking at results ----
 # Actual vs. Pred per country
-unique_countries <- unique(train_lm$location)
+unique_countries <- unique(train_tree$location)
 
 ## Training Actual vs. Pred plots ----
 # Loop through each country
