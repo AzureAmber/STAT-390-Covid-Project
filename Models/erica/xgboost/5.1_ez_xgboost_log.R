@@ -202,12 +202,6 @@ train_plot <- final_btree_train %>%
 
 ggsave(train_plot, file = "Results/erica/xgboost_log/South Korea_train_pred.jpeg", width=8, height =7, dpi = 300)
 
-g20 <- c('Argentina', 'Australia', 'Canada', 'France', 'Germany',
-         'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
-         'Saudi Arabia', 'South Africa', 'Turkey', 'United Kingdom', 'United States')
-
-g24 <- c('Argentina', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
-         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
 
 
 ## Testing visualization

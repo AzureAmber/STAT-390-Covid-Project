@@ -94,16 +94,26 @@ prophet_tuned %>% collect_metrics() %>%
 prophetsingle_autoplot <- autoplot(prophet_tuned, metric = "rmse")
 best_prophet_single <- show_best(prophet_tuned, metric = "rmse")
 
-# #save autoplot
-# jpeg("Models/erica/results/prophet_single/prophet_single_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
-# # Print the plot to the device
-# print(prophetsingle_autoplot)
-# # Close the device
-# dev.off()
+#save autoplot
+jpeg("Models/erica/results/prophet_single/prophet_single_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
+print(prophetsingle_autoplot)
+dev.off()
 
-# # 7. Fit Best Model
-# # changepoint_num = 0, changepoint_range = 0.6
-# # prior_scale_changepoints = 0.001, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.316
+# 7. Fit Best Model
+
+
+# # A tibble: 5 × 11
+# changepoint_num changepoint_range prior_scale_changepoints prior_scale_seasonality prior_scale_holidays .metric
+# <int>             <dbl>                    <dbl>                   <dbl>                <dbl> <chr>  
+#   1              50              0.9                     0.001                   0.001                0.001 rmse   
+# 2              50              0.9                     0.001                   0.001                0.316 rmse   
+# 3              50              0.9                     0.001                   0.001              100     rmse   
+# 4              50              0.75                    0.001                   0.001                0.001 rmse   
+# 5              50              0.75                    0.001                   0.001                0.316 rmse  
+
+
+# changepoint_num = 50, changepoint_range = 0.9
+# prior_scale_changepoints = 0.001, prior_scale_seasonality = 0.001, prior_scale_holidays = 0.001
 # 
 # prophet_model <- prophet_reg(
 #   growth = "linear", 
