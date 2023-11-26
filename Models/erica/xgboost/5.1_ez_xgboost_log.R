@@ -59,13 +59,12 @@ btree_recipe <- recipe(new_cases_log ~ ., data = train_tree) %>%
     G20 = ifelse(G20, 1, 0),
     G24 = ifelse(G24, 1, 0)) %>%
   step_dummy(all_nominal_predictors()) %>% 
-  step_normalize(all_numerical_predictors())
+  step_normalize(all_numeric_predictors())
 
 
 btree_model <- boost_tree(
   trees = 1000, tree_depth = tune(),
-  learn_rate = tune(), min_n = tune(), mtry = tune(),
-  stop_iter = tune()) %>%
+  learn_rate = tune(), min_n = tune(), mtry = tune()) %>%
   set_engine('xgboost') %>%
   set_mode('regression')
 
@@ -80,7 +79,6 @@ btree_params <- btree_wflow %>%
   extract_parameter_set_dials() %>%
   update(mtry = mtry(c(1,5)),
          tree_depth = tree_depth(c(20,45)),
-         stop_iter = stop_iter(c(10,50)),
          learn_rate = learn_rate(c(-1,0)),
          min_n = min_n(c(1,3))
   )
@@ -116,115 +114,126 @@ btree_autoplot <- autoplot(btree_tuned, metric = "rmse")
 show_best(btree_tuned, metric = "rmse")
 
 
-
-btree_autoplot <- autoplot(btree_tuned, metric = "rmse")
-
 jpeg("Models/erica/results/xgboost/xgboost_log_autoplot.jpeg", width = 8, height = 6, units = "in", res = 300)
 print(btree_autoplot)
 dev.off()
 
 
-# # 7. Fit Best Model
-# 
-# # mtry = 5, min_n = 2, tree_depth = 45, learn_rate = 0.316
-# 
-# # Increase tree_depth, learn_rate, mtry
-# # # Decrease min_n
-# btree_model <- boost_tree(
-#   trees = 500, 
-#   tree_depth = 45,
-#   learn_rate = 0.316, 
-#   min_n = 2, 
-#   mtry = 5,
-#   stop_iter = 30) %>%
-#   set_engine('xgboost') %>%
-#   set_mode('regression')
-# 
-# btree_recipe <- recipe(new_cases ~ ., data = train_tree) %>%
-#   step_rm(date) %>%
-#   step_mutate(
-#     G20 = ifelse(G20, 1, 0),
-#     G24 = ifelse(G24, 1, 0)) %>%
-#   step_dummy(all_nominal_predictors())
-# 
-# btree_wflow <- workflow() %>%
-#   add_model(btree_model) %>%
-#   add_recipe(btree_recipe)
-# 
-# btree_fit <- fit(btree_wflow, data = train_tree)
-# 
-# #predictions on country level
-# final_btree_train <- train_tree %>%
-#   bind_cols(predict(btree_fit, new_data = train_tree)) %>%
-#   rename(pred = .pred)
-# 
-# train_results <- final_btree_train %>%
-#   group_by(location) %>%
-#   summarise(rmse_train_pred = ModelMetrics::rmse(new_cases, pred)) %>%
-#   arrange(location)
-# 
-# final_btree_test <- test_tree %>% 
-#   bind_cols(predict(btree_fit, new_data = test_tree)) %>% 
-#   rename(pred = .pred)
-# 
-# test_results <- final_btree_test %>% 
-#   group_by(location) %>% 
-#   summarize(rmse_test_pred = ModelMetrics::rmse(new_cases, pred)) %>% 
-#   arrange(location)
-# 
-# results <- train_results %>% 
-#   inner_join(test_results, by = "location", suffix = c("rmse_train_pred", "rmse_test_pred"))
-# 
-# write.csv(results, "Results/erica/xgboost/xgboost_rmse_results.csv", row.names = FALSE)
-# 
-# ## Training Visualization
-# 
-# train_plot <- final_btree_train %>% 
-#   filter(location == "United States") %>% 
-#   ggplot(aes(x=date))+
-#   geom_line(aes(y = new_cases, color = "Actual New Cases"))+
-#   geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed")+
-#   scale_y_continuous(n.breaks = 15)+
-#   scale_x_date(date_breaks = "3 months", date_labels = "%b %y")+
-#   theme_minimal()+
-#   labs(x = "Date",
-#        y = "New Cases",
-#        title = paste0("Training: Actual vs. Predicted New Cases in United States in 2023"),
-#        subtitle = "boost_tree(trees = 500, tree_depth = 45, learn_rate = 0.316, min_n = 2, mtry = 5, stop_iter = 30_",
-#        caption = "xgboost",
-#        color = "")+
-#   theme(plot.title = element_text(face = "bold", hjust = 0.5),
-#         plot.subtitle = element_text(face = "italic", hjust = 0.5),
-#         legend.position = "bottom",
-#         panel.grid.minor = element_blank()) +
-#   scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
-# 
-# ggsave(train_plot, file = "Results/erica/xgboost/United States_train_pred.jpeg",
-#        width=8, height =7, dpi = 300)
-# 
-# 
-# 
-# #testing visualization
-# test_plot <- final_btree_test %>% 
-#   filter(location == "United States") %>% 
-#   ggplot(aes(x=date)) +
-#   geom_line(aes(y = new_cases, color = "Actual New Cases")) +
-#   geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
-#   scale_y_continuous(n.breaks = 15) + 
-#   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
-#   theme_minimal() + 
-#   labs(x = "Date", 
-#        y = "New Cases", 
-#        title = paste0("Testing: Actual vs. Predicted New Cases in United States in 2023"),
-#        subtitle = "boost_tree(trees = 500, tree_depth = 45, learn_rate = 0.316, min_n = 2, mtry = 5, stop_iter = 30)",
-#        caption = "xgboost",
-#        color = "") + 
-#   theme(plot.title = element_text(face = "bold", hjust = 0.5),
-#         plot.subtitle = element_text(face = "italic", hjust = 0.5),
-#         legend.position = "bottom",
-#         panel.grid.minor = element_blank()) +
-#   scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
-# 
-# ggsave(test_plot, file = "Results/erica/xgboost/United States_test_pred.jpeg",
-#        width=8, height =7, dpi = 300)
-# 
+# 7. Fit Best Model
+
+# mtry = 5, min_n = 3, tree_depth = 20, learn_rate = 0.1, trees = 1000
+
+btree_model <- boost_tree(
+  trees = 1000, 
+  tree_depth = 20,
+  learn_rate = 0.1, 
+  min_n = 3, 
+  mtry = 5) %>%
+  set_engine('xgboost') %>%
+  set_mode('regression')
+
+btree_recipe <- recipe(new_cases_log ~ ., data = train_tree) %>%
+   step_rm(date) %>%
+   step_mutate(
+     G20 = ifelse(G20, 1, 0),
+     G24 = ifelse(G24, 1, 0)) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+
+btree_wflow_tuned <- workflow() %>%
+  add_model(btree_model) %>%
+  add_recipe(btree_recipe)
+ 
+btree_fit <- fit(btree_wflow_tuned, data = train_tree)
+
+
+#predictions on country level
+final_btree_train <- train_tree %>%
+  bind_cols(predict(btree_fit, new_data = train_tree)) %>%
+  mutate(.pred = exp(.pred)) %>% 
+  rename(pred = .pred)
+
+
+btree_log_train_results <- final_btree_train %>%
+  group_by(location) %>%
+  summarize(rmse_train_pred = ModelMetrics::rmse(new_cases, pred)) %>%
+  arrange(location)
+
+
+final_btree_test <- test_tree %>% 
+  bind_cols(predict(btree_fit, new_data = test_tree)) %>% 
+  mutate(.pred = exp(.pred)) %>% 
+  rename(pred = .pred)
+
+btree_log_test_results <- final_btree_test %>% 
+  group_by(location) %>% 
+  summarize(rmse_test_pred = ModelMetrics::rmse(new_cases, pred)) %>% 
+  arrange(location)
+
+btree_log_results <- btree_log_train_results %>% 
+   inner_join(btree_log_test_results, by = "location", suffix = c("rmse_train_pred", "rmse_test_pred"))
+
+write.csv(btree_log_results, "Results/erica/xgboost_log/xgboost_log_rmse_results.csv", row.names = FALSE)
+ 
+
+
+
+## Training Visualization
+
+train_plot <- final_btree_train %>%
+  filter(location == "South Korea") %>%
+  ggplot(aes(x=date))+
+  geom_line(aes(y = new_cases, color = "Actual New Cases"))+
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed")+
+  scale_y_continuous(n.breaks = 15)+
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y")+
+  theme_minimal()+
+  labs(x = "Date",
+       y = "New Cases",
+       title = "Training: Actual vs. Predicted New Cases in South Korea in 2023",
+       subtitle = "boost_tree(trees = 1000, tree_depth = 20, learn_rate = 0.1, min_n = 3, mtry = 5",
+       caption = "xgboost",
+       color = "") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(train_plot, file = "Results/erica/xgboost_log/South Korea_train_pred.jpeg", width=8, height =7, dpi = 300)
+
+g20 <- c('Argentina', 'Australia', 'Canada', 'France', 'Germany',
+         'India', 'Italy', 'Japan', 'South Korea', 'Mexico', 'Russia',
+         'Saudi Arabia', 'South Africa', 'Turkey', 'United Kingdom', 'United States')
+
+g24 <- c('Argentina', 'Colombia', 'Ecuador', 'Ethiopia', 'India',
+         'Mexico', 'Morocco', 'Pakistan', 'Philippines', 'South Africa', 'Sri Lanka')
+
+
+## Testing visualization
+
+test_plot <- final_btree_test %>%
+  filter(location == "United States") %>%
+  ggplot(aes(x=date)) +
+  geom_line(aes(y = new_cases, color = "Actual New Cases")) +
+  geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+  scale_y_continuous(n.breaks = 15) +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+  theme_minimal() +
+  labs(x = "Date",
+       y = "New Cases",
+       title = "Testing: Actual vs. Predicted New Cases in United States in 2023",
+       subtitle = "boost_tree(trees = 1000, tree_depth = 20, learn_rate = 0.1, min_n = 3, mtry = 5)",
+       caption = "xgboost",
+       color = "") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(face = "italic", hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+
+ggsave(test_plot, file = "Results/erica/xgboost_log/United States_test_pred.jpeg", width=8, height =7, dpi = 300)
+
+
+
+
