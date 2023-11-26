@@ -150,12 +150,12 @@ autoplot(autoarima_tuned, metric = "rmse")
 
 
 # 4. Fit Best Model
-train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
-test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
+train_lm_fix = train_lm_fix_init %>% filter(location == "Germany")
+test_lm_fix = test_lm_fix_init %>% filter(location == "Germany")
 
 autoarima_model = arima_reg(
   seasonal_period = 53,
-  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 2,
+  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 0,
   seasonal_ar = 0, seasonal_differences = 0, seasonal_ma = 0) %>%
   set_engine('auto_arima')
 autoarima_recipe = recipe(err ~ date, data = train_lm_fix)
@@ -209,8 +209,7 @@ ggplot(x, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Training: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + AutoARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    title = "Log Training: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -240,8 +239,7 @@ ggplot(y, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Testing: Actual vs Predicted New Cases in Germany",
-    subtitle = "Linear Trend + AutoARIMA(p=4, d=0, q=3, P = 1, D = 0, Q = 1, S = 53)",
+    title = "Log Testing: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
