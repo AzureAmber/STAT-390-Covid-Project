@@ -34,11 +34,11 @@ complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
   ungroup() %>%
   mutate(seasonality_group = as.factor(seasonality_group))
 train_lm = complete_lm %>% filter(date < as.Date("2023-01-01")) %>%
-  group_by(location) %>%
+  group_by(date) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 test_lm = complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
-  group_by(location) %>%
+  group_by(date) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 
@@ -46,9 +46,9 @@ test_lm = complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
   train_lm,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
+  initial = 23*53,
+  assess = 23*4*2,
+  skip = 23*4*4,
   cumulative = FALSE
 )
 data_folds
@@ -98,7 +98,8 @@ stopCluster(cores.cluster)
 prophet_tuned %>% collect_metrics() %>%
   relocate(mean) %>%
   group_by(.metric) %>%
-  arrange(mean)
+  arrange(mean) %>%
+  head(20)
 
 # 6. Results
 autoplot(prophet_tuned, metric = "rmse")
@@ -107,8 +108,8 @@ autoplot(prophet_tuned, metric = "rmse")
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
   seasonality_yearly = FALSE, seasonality_weekly = TRUE, seasonality_daily = FALSE,
-  changepoint_num = tune(), changepoint_range = tune(), prior_scale_changepoints = tune(),
-  prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
+  changepoint_num = 50, changepoint_range = 0.75, prior_scale_changepoints = 0.001,
+  prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
 prophet_recipe = recipe(value ~ ., data = train_lm) %>%
   step_rm(day_of_week, continent) %>%
@@ -168,7 +169,7 @@ ggplot(x, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Log Training: Actual vs Predicted New Cases in United States",
+    title = "Log Training: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -199,7 +200,7 @@ ggplot(y, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Log Testing: Actual vs Predicted New Cases in United States",
+    title = "Log Testing: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(

@@ -29,20 +29,20 @@ complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
   ungroup() %>%
   mutate(seasonality_group = as.factor(seasonality_group))
 train_lm = complete_lm %>% filter(date < as.Date("2023-01-01")) %>%
-  group_by(location) %>%
+  group_by(date) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 test_lm = complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
-  group_by(location) %>%
+  group_by(date) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
   train_lm,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
+  initial = 23*53,
+  assess = 23*4*2,
+  skip = 23*4*4,
   cumulative = FALSE
 )
 data_folds
