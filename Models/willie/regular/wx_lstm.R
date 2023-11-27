@@ -18,8 +18,8 @@ library(tensorflow)
 # https://www.r-bloggers.com/2021/04/lstm-network-in-r/
 
 # 1. Read in data
-final_train_nn = readRDS('data/finalized_data/final_train_nn.rds')
-final_test_nn = readRDS('data/finalized_data/final_test_nn.rds')
+final_train_nn = readRDS('data/avg_final_data/final_train_nn.rds')
+final_test_nn = readRDS('data/avg_final_data/final_test_nn.rds')
 
 resp_scale = c(mean(final_train_nn$new_cases), sd(final_train_nn$new_cases))
 
@@ -106,7 +106,7 @@ data_test_y[,,1] = test_nn$new_cases
 
 # LSTM Model
 # tuning parameters
-num_units = 5
+num_units = 30
 num_epochs = 10
 
 # build
@@ -173,7 +173,7 @@ results_test = final_test %>%
 
 # plots
 x = final_train %>%
-  filter(location == "United States") %>%
+  filter(location == "Germany") %>%
   select(date, new_cases, pred) %>%
   pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
@@ -189,7 +189,7 @@ ggplot(x, aes(date, value)) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Training: Actual vs Predicted New Cases in United States",
+    title = "Training: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -204,7 +204,7 @@ ggplot(x, aes(date, value)) +
 
 
 y = final_test %>% 
-  filter(location == "United States") %>%
+  filter(location == "Germany") %>%
   select(date, new_cases, pred) %>%
   pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
@@ -220,7 +220,7 @@ ggplot(y, aes(date, value)) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Testing: Actual vs Predicted New Cases in United States",
+    title = "Testing: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
