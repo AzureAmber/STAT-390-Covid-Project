@@ -101,9 +101,9 @@ library(ModelMetrics)
 prophet_train_results <- predict(prophet_multi_fit, new_data = train_lm) |> 
   bind_cols(train_lm |> select(new_cases, location, date)) |> 
   rename(pred = .pred) 
-  # group_by(location) |> 
-  # summarize(value = rmse(new_cases, pred)) |> 
-  # arrange(location)
+# group_by(location) |> 
+# summarize(value = rmse(new_cases, pred)) |> 
+# arrange(location)
 
 # location        value
 # <chr>           <dbl>
@@ -247,3 +247,4 @@ prophet_multi_results <- prophet_multi_pred %>%
 
 
 save(prophet_train_results, prophet_multi_results, file = "Models/cindy/results/prophet_multi.rda")
+
