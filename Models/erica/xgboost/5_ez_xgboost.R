@@ -43,9 +43,9 @@ test_tree <- complete_tree %>%
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
   train_tree,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
+  initial = 366*23,
+  assess = 30*2*23,
+  skip = 30*4*23,
   cumulative = FALSE
 )
 #data_folds
@@ -56,13 +56,13 @@ btree_recipe <- recipe(new_cases ~ ., data = train_tree) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
     G24 = ifelse(G24, 1, 0)) %>%
-  step_dummy(all_nominal_predictors())
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
 
 
 btree_model <- boost_tree(
-  trees = 500, tree_depth = tune(),
-  learn_rate = tune(), min_n = tune(), mtry = tune(),
-  stop_iter = tune()) %>%
+  trees = 1000, tree_depth = tune(),
+  learn_rate = tune(), min_n = tune(), mtry = tune()) %>%
   set_engine('xgboost') %>%
   set_mode('regression')
 
@@ -76,9 +76,8 @@ btree_wflow <- workflow() %>%
 btree_params <- btree_wflow %>%
   extract_parameter_set_dials() %>%
   update(mtry = mtry(c(1,5)),
-         tree_depth = tree_depth(c(20,45)),
-         stop_iter = stop_iter(c(10,50)),
-         learn_rate = learn_rate(c(-1,0)),
+         tree_depth = tree_depth(c(2,20)),
+         learn_rate = learn_rate(c(0,1)),
          min_n = min_n(c(1,3))
   )
 

@@ -45,9 +45,9 @@ test_tree <- complete_tree %>%
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
   train_tree,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
+  initial = 366*23,
+  assess = 30*2*23,
+  skip = 30*4*23,
   cumulative = FALSE
 )
 #data_folds
