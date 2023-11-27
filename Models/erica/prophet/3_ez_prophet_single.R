@@ -101,7 +101,7 @@ prophet_uni_grid <- grid_regular(prophet_uni_params, levels = 5)
 # 5. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster = makePSOCKcluster(4)
+cores.cluster = makePSOCKcluster(10)
 registerDoParallel(cores.cluster)
 
 prophet_uni_tuned <- tune_grid(

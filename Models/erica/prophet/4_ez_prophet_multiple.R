@@ -39,7 +39,7 @@ train_multi_prophet <- complete_multi_prophet %>%
   arrange(date, .by_group = TRUE) %>% 
   ungroup()
 
-test_multi_prophet <- complete_uni_prophet %>% 
+test_multi_prophet <- complete_multi_prophet %>% 
   filter(date >= as.Date ("2023-01-01")) %>% 
   group_by(location) %>% 
   arrange(date, .by_group = TRUE) %>% 
@@ -96,7 +96,7 @@ prophet_multi_grid <- grid_regular(prophet_multi_params, levels = 3)
 # 5. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster <- makePSOCKcluster(6)
+cores.cluster <- makePSOCKcluster(10)
 registerDoParallel(cores.cluster)
 
 prophet_multi_tuned <- tune_grid(
