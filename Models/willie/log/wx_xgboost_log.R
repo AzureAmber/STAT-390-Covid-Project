@@ -163,7 +163,6 @@ ggplot(x, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Training: Actual vs Predicted New Cases in United States",
-    subtitle = "boost_tree(trees = 1000, tree_depth = 20, learn_rate = 0.0178, min_n = 5, mtry = 15)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -195,7 +194,6 @@ ggplot(y, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Testing: Actual vs Predicted New Cases in United States",
-    subtitle = "boost_tree(trees = 1000, tree_depth = 20, learn_rate = 0.0178, min_n = 5, mtry = 15)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
