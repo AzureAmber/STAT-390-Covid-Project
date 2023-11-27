@@ -10,10 +10,10 @@ library(RcppRoll)
 
 
 # 1. Read in data
-train_prophet <- readRDS('data/finalized_data/final_train_lm.rds')
-test_prophet <- readRDS('data/finalized_data/final_test_lm.rds')
+train_prophet <- readRDS('data/avg_final_data/final_train_lm.rds')
+test_prophet <- readRDS('data/avg_final_data/final_test_lm.rds')
 
-complete_prophet <- train_prophet %>% rbind(test_prophet) %>% 
+complete_multi_prophet <- train_prophet %>% rbind(test_prophet) %>% 
   filter(date >= as.Date("2020-01-19")) %>% 
   group_by(location) %>% 
   arrange(date, .by_group = TRUE) %>% 
@@ -33,13 +33,13 @@ complete_prophet <- train_prophet %>% rbind(test_prophet) %>%
   mutate(seasonality_group = as.factor(seasonality_group))
   
 
-train_prophet <- complete_prophet %>% 
+train_multi_prophet <- complete_multi_prophet %>% 
   filter(date < as.Date("2023-01-01")) %>% 
   group_by(location) %>% 
   arrange(date, .by_group = TRUE) %>% 
   ungroup()
 
-test_prophet <- complete_prophet %>% 
+test_multi_prophet <- complete_uni_prophet %>% 
   filter(date >= as.Date ("2023-01-01")) %>% 
   group_by(location) %>% 
   arrange(date, .by_group = TRUE) %>% 
@@ -52,11 +52,11 @@ test_prophet <- complete_prophet %>%
 #   filter(location == "United States")
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
-data_folds <- rolling_origin(
-  train_prophet,
-  initial = 53,
-  assess = 4*2,
-  skip = 4*4,
+data_folds_multi <- rolling_origin(
+  train_multi_prophet,
+  initial = 53*23,
+  assess = 4*2*23,
+  skip = 4*4*23,
   cumulative = FALSE
 )
 #data_folds
@@ -76,7 +76,7 @@ prophet_multi_model <- prophet_reg(
   set_engine('prophet')
 
 prophet_multi_recipe <- recipe(value ~ .,
-                        data = train_prophet) %>%
+                        data = train_multi_prophet) %>%
   step_rm(day_of_week, continent, G20, G24) %>% 
   step_corr(all_numeric_predictors(), threshold = 0.7) %>% 
   step_dummy(all_nominal_predictors())
@@ -101,7 +101,7 @@ registerDoParallel(cores.cluster)
 
 prophet_multi_tuned <- tune_grid(
   prophet_multi_wflow,
-  resamples = data_folds,
+  resamples = data_folds_multi,
   grid = prophet_multi_grid,
   control = control_grid(save_pred = TRUE,
                          save_workflow = FALSE,
