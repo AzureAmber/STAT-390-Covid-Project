@@ -22,20 +22,20 @@ complete_tree = final_train_tree %>% rbind(final_test_tree) %>%
     one_lag_month = lag(new_cases, n = 30, default = 0)
   )
 train_tree = complete_tree %>% filter(date < as.Date("2023-01-01")) %>%
-  group_by(location) %>%
+  group_by(date) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 test_tree = complete_tree %>% filter(date >= as.Date("2023-01-01")) %>%
-  group_by(location) %>%
+  group_by(date) %>%
   arrange(date, .by_group = TRUE) %>%
   ungroup()
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
   train_tree,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
+  initial = 23*366,
+  assess = 23*30*2,
+  skip = 23*30*4,
   cumulative = FALSE
 )
 data_folds
