@@ -107,3 +107,40 @@ ggplot(n, aes(lag, 0)) +
 
 
 
+
+
+
+
+
+
+library(tseries)
+data = tibble(
+  country = numeric(23),
+  adf = numeric(23),
+  adf_pval = numeric(23),
+  adf_state = numeric(23)
+)
+country_names = sort(unique(complete_lm$location))
+for (i in 1:23) {
+  dat = complete_lm %>% filter(location == country_names[i]) %>%
+    arrange(date)
+  x = ts(dat$new_cases, frequency = 7)
+  y = adf.test(x)
+  data$country[i] = country_names[i]
+  data$adf[i] = y$statistic
+  data$adf_pval[i] = y$p.value
+  data$adf_state[i] = ifelse(y$p.value <= 0.05, "Stationary", "Non-Stationary")
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

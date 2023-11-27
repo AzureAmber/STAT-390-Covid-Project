@@ -2,6 +2,7 @@ library(tidyverse)
 library(tidymodels)
 library(modeltime)
 library(doParallel)
+library(RcppRoll)
 
 # Source
 # https://www.youtube.com/watch?v=OIQPIefDxx0
@@ -9,16 +10,39 @@ library(doParallel)
 
 
 # 1. Read in data
+final_train_lm = readRDS('data/avg_final_data/final_train_lm.rds')
+final_test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
+
+# weekly rolling average of new cases
 # Remove observations before first appearance of COVID: 2020-01-04
-train_lm = readRDS('data/avg_final_data/final_train_lm.rds') %>% filter(date >= as.Date("2020-01-04"))
-test_lm = readRDS('data/avg_final_data/final_test_lm.rds')
+complete_lm = final_train_lm %>% rbind(final_test_lm) %>%
+  filter(date >= as.Date("2020-01-04")) %>%
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
+  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
+  arrange(date, .by_group = TRUE) %>%
+  slice(which(row_number() %% 7 == 0)) %>%
+  mutate(
+    time_group = row_number(),
+    seasonality_group = row_number() %% 53) %>%
+  ungroup() %>%
+  mutate(seasonality_group = as.factor(seasonality_group))
+train_lm = complete_lm %>% filter(date < as.Date("2023-01-01")) %>%
+  group_by(date) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
+test_lm = complete_lm %>% filter(date >= as.Date("2023-01-01")) %>%
+  group_by(date) %>%
+  arrange(date, .by_group = TRUE) %>%
+  ungroup()
 
 # 2. Create validation sets for every year train + 2 month test with 4-month increments
 data_folds = rolling_origin(
   train_lm,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
+  initial = 23*53,
+  assess = 23*4*2,
+  skip = 23*4*4,
   cumulative = FALSE
 )
 data_folds
@@ -26,12 +50,13 @@ data_folds
 # 3. Define model, recipe, and workflow
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
-  seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
+  seasonality_yearly = FALSE, seasonality_weekly = TRUE, seasonality_daily = FALSE,
   changepoint_num = tune(), changepoint_range = tune(), prior_scale_changepoints = tune(),
   prior_scale_seasonality = tune(), prior_scale_holidays = tune()) %>%
   set_engine('prophet')
 
-prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
+prophet_recipe = recipe(value ~ ., data = train_lm) %>%
+  step_rm(day_of_week, continent) %>%
   step_corr(all_numeric_predictors(), threshold = 0.7) %>%
   step_dummy(all_nominal_predictors())
 # View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
@@ -72,14 +97,14 @@ prophet_tuned %>% collect_metrics() %>%
 autoplot(prophet_tuned, metric = "rmse")
 
 # 7. Fit Best Model
-# 0, 0.6, 100, 100, 0.001
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
-  seasonality_yearly = FALSE, seasonality_weekly = FALSE, seasonality_daily = TRUE,
-  changepoint_num = 50, changepoint_range = 0.9, prior_scale_changepoints = 0.316,
-  prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
+  seasonality_yearly = FALSE, seasonality_weekly = TRUE, seasonality_daily = FALSE,
+  changepoint_num = 50, changepoint_range = 0.9, prior_scale_changepoints = 0.001,
+  prior_scale_seasonality = 100, prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
-prophet_recipe = recipe(new_cases ~ ., data = train_lm) %>%
+prophet_recipe = recipe(value ~ ., data = train_lm) %>%
+  step_rm(day_of_week, continent) %>%
   step_corr(all_numeric_predictors(), threshold = 0.7) %>%
   step_dummy(all_nominal_predictors())
 prophet_wflow = workflow() %>%
@@ -99,11 +124,11 @@ final_test = test_lm %>%
 library(ModelMetrics)
 result = final_train %>%
   group_by(location) %>%
-  summarise(value = rmse(new_cases, pred)) %>%
+  summarise(value = rmse(value, pred)) %>%
   arrange(location)
 result_test = final_test %>%
   group_by(location) %>%
-  summarise(value = rmse(new_cases, pred)) %>%
+  summarise(value = rmse(value, pred)) %>%
   arrange(location)
 
 
@@ -119,11 +144,11 @@ ggplot(final_train) +
 
 # plots
 x = final_train %>%
-  filter(location == "Germany") %>%
-  select(date, new_cases, pred) %>%
-  pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
+  filter(location == "United States") %>%
+  select(date, value, pred) %>%
+  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
-    type = ifelse(type == 'new_cases', 'New Cases', 'Predicted New Cases'),
+    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
     type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
   )
 
@@ -136,7 +161,6 @@ ggplot(x, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Training: Actual vs Predicted New Cases in United States",
-    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -151,11 +175,11 @@ ggplot(x, aes(date, value)) +
 
 
 y = final_test %>% 
-  filter(location == "Germany") %>%
-  select(date, new_cases, pred) %>%
-  pivot_longer(cols = c("new_cases", "pred"), names_to = "type", values_to = "value") %>%
+  filter(location == "United States") %>%
+  select(date, value, pred) %>%
+  pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
-    type = ifelse(type == 'new_cases', 'New Cases', 'Predicted New Cases'),
+    type = ifelse(type == 'value', 'New Cases', 'Predicted New Cases'),
     type = factor(type, levels = c('New Cases', 'Predicted New Cases'))
   )
 
@@ -168,7 +192,6 @@ ggplot(y, aes(date, value)) +
   scale_color_manual(values = c("red", "blue")) +
   labs(
     title = "Testing: Actual vs Predicted New Cases in United States",
-    subtitle = "prophet_reg(changepoint_num = 0, prior_scale_changepoints = 0.001, \n prior_scale_seasonality = 0.216, prior_scale_holidays = 0.001)",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -177,6 +200,8 @@ ggplot(y, aes(date, value)) +
     legend.position = "bottom",
     plot.title = element_text(hjust = 0.5),
     plot.subtitle = element_text(size = 8, hjust = 0.5, colour = "#808080"))
+
+
 
 
 

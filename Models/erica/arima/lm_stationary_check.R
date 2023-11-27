@@ -13,8 +13,8 @@ registerDoParallel(cores.cluster)
 
 
 # Read in data
-train_lm <- read_rds('data/finalized_data/final_train_lm.rds')
-test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
+train_lm <- read_rds('data/avg_final_data/final_train_lm.rds')
+test_lm <- read_rds('data/avg_final_data/final_test_lm.rds')
 
 #save different country in separate df
 
@@ -48,14 +48,12 @@ for(loc in locations){
 }
 
 # check adf_results_list
-# non-stationary: Australia, France, Germany, Japan, Sri Lanka, 
-# Turkey
-# the rest 17 countries are stationary
+# non-stationary: Japan, Sri Lanka
+# the rest 21 countries are stationary
 
 
 ## check distribution of all 6 non-stationary countries
-countries_of_interest <- c("Australia", "France", "Germany",
-                           "Japan", "Sri Lanka", "Turkey")
+countries_of_interest <- c("Japan", "Sri Lanka")
 
 print(is.data.frame(train_lm))
 print("location" %in% names(train_lm))
@@ -72,5 +70,5 @@ filtered_train_lm %>%
   theme(legend.position = "none")
 
 
-### choose USA for stationary rep, choose Germany for non-stationary rep
+### choose USA for stationary rep, choose Japan for non-stationary rep
 

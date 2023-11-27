@@ -43,6 +43,30 @@ ggplot(train_lm %>% filter(location == "Germany"), aes(date, value)) +
 ggplot(train_lm %>% filter(location == "South Korea"), aes(date, value)) +
   geom_point()
 
+
+
+# stationary check
+# library(tseries)
+# data = tibble(
+#   country = numeric(23),
+#   adf = numeric(23),
+#   adf_pval = numeric(23),
+#   adf_state = numeric(23)
+# )
+# country_names = sort(unique(complete_lm$location))
+# for (i in 1:23) {
+#   dat = complete_lm %>% filter(location == country_names[i]) %>%
+#     arrange(date)
+#   x = ts(dat$new_cases, frequency = 7)
+#   y = adf.test(x)
+#   data$country[i] = country_names[i]
+#   data$adf[i] = y$statistic
+#   data$adf_pval[i] = y$p.value
+#   data$adf_state[i] = ifelse(y$p.value <= 0.05, "Stationary", "Non-Stationary")
+# }
+
+
+
 # 2. Find model trend by country
 train_lm_fix_init = NULL
 test_lm_fix_init = NULL
@@ -70,6 +94,32 @@ ggplot(train_lm_fix_init %>% filter(location == "United States")) +
   geom_line(aes(date, trend), color = 'red')
 # plot of residual errors
 ggplot(train_lm_fix_init %>% filter(location == "United States"), aes(date, err)) + geom_line()
+
+
+
+# stationary check
+# library(tseries)
+# data = tibble(
+#   country = numeric(23),
+#   adf = numeric(23),
+#   adf_pval = numeric(23),
+#   adf_state = numeric(23)
+# )
+# country_names = sort(unique(train_lm_fix_init$location))
+# for (i in 1:23) {
+#   dat = train_lm_fix_init %>% filter(location == country_names[i]) %>%
+#     arrange(date)
+#   x = ts(dat$err, frequency = 7)
+#   y = adf.test(x)
+#   data$country[i] = country_names[i]
+#   data$adf[i] = y$statistic
+#   data$adf_pval[i] = y$p.value
+#   data$adf_state[i] = ifelse(y$p.value <= 0.05, "Stationary", "Non-Stationary")
+# }
+
+
+
+
 
 # 3 ARIMA model for US data
 # Find best arima parameters to model the error after removing trend
@@ -170,13 +220,13 @@ autoplot(arima_tuned, metric = "rmse")
 
 
 # 4. Fit Best Model
-train_lm_fix = train_lm_fix_init %>% filter(location == "United States")
-test_lm_fix = test_lm_fix_init %>% filter(location == "United States")
+train_lm_fix = train_lm_fix_init %>% filter(location == "Germany")
+test_lm_fix = test_lm_fix_init %>% filter(location == "Germany")
 
 arima_model = arima_reg(
   seasonal_period = "auto",
-  non_seasonal_ar = 2, non_seasonal_differences = 0, non_seasonal_ma = 2,
-  seasonal_ar = 2, seasonal_differences = 0, seasonal_ma = 0) %>%
+  non_seasonal_ar = 4, non_seasonal_differences = 0, non_seasonal_ma = 2,
+  seasonal_ar = 1, seasonal_differences = 0, seasonal_ma = 1) %>%
   set_engine('arima')
 arima_recipe = recipe(err ~ date, data = train_lm_fix)
 arima_wflow = workflow() %>%
@@ -230,8 +280,7 @@ ggplot(x, aes(date, value)) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Training: Actual vs Predicted New Cases in United States",
-    subtitle = "Linear Trend + ARIMA(p=5, d=0, q=0, P = 0, D = 0, Q = 0, S = 53)",
+    title = "Training: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -261,8 +310,7 @@ ggplot(y, aes(date, value)) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Testing: Actual vs Predicted New Cases in United States",
-    subtitle = "Linear Trend + ARIMA(p=5, d=0, q=0, P = 0, D = 0, Q = 0, S = 53)",
+    title = "Testing: Actual vs Predicted New Cases in Germany",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
