@@ -108,7 +108,7 @@ autoplot(prophet_tuned, metric = "rmse")
 prophet_model = prophet_reg(
   growth = "linear", season = "additive",
   seasonality_yearly = FALSE, seasonality_weekly = TRUE, seasonality_daily = FALSE,
-  changepoint_num = 50, changepoint_range = 0.75, prior_scale_changepoints = 0.001,
+  changepoint_num = 25, changepoint_range = 0.6, prior_scale_changepoints = 100,
   prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001) %>%
   set_engine('prophet')
 prophet_recipe = recipe(value ~ ., data = train_lm) %>%
@@ -153,7 +153,7 @@ ggplot(final_train) +
 
 # plots
 x = final_train %>%
-  filter(location == "Germany") %>%
+  filter(location == "United States") %>%
   select(date, value, pred) %>%
   pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
@@ -169,7 +169,7 @@ ggplot(x, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Log Training: Actual vs Predicted New Cases in Germany",
+    title = "Log Training: Actual vs Predicted New Cases in United States",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -184,7 +184,7 @@ ggplot(x, aes(date, exp(value))) +
 
 
 y = final_test %>% 
-  filter(location == "Germany") %>%
+  filter(location == "United States") %>%
   select(date, value, pred) %>%
   pivot_longer(cols = c("value", "pred"), names_to = "type", values_to = "value") %>%
   mutate(
@@ -200,7 +200,7 @@ ggplot(y, aes(date, exp(value))) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Log Testing: Actual vs Predicted New Cases in Germany",
+    title = "Log Testing: Actual vs Predicted New Cases in United States",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(

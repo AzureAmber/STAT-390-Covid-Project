@@ -107,8 +107,8 @@ autoplot(btree_tuned, metric = "rmse")
 
 # 7. Fit Best Model
 btree_model = boost_tree(
-  trees = 1000, tree_depth = 2,
-  learn_rate = 0.0178, min_n = 5, mtry = 25) %>%
+  trees = 1000, tree_depth = 20,
+  learn_rate = 0.0178, min_n = 10, mtry = 25) %>%
   set_engine('xgboost') %>%
   set_mode('regression')
 btree_recipe = recipe(new_cases_log ~ ., data = train_tree) %>%
@@ -162,7 +162,7 @@ ggplot(x, aes(date, value)) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Training: Actual vs Predicted New Cases in United States",
+    title = "Log Training: Actual vs Predicted New Cases in United States",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
@@ -193,7 +193,7 @@ ggplot(y, aes(date, value)) +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
   scale_color_manual(values = c("red", "blue")) +
   labs(
-    title = "Testing: Actual vs Predicted New Cases in United States",
+    title = "Log Testing: Actual vs Predicted New Cases in United States",
     x = "Date", y = "New Cases") +
   theme_light() +
   theme(
