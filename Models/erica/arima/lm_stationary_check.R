@@ -6,27 +6,28 @@ library(dplyr)
 library(tseries)
 
 
-# Setup parallel processing
-# detectCores(logical = FALSE)
-cores.cluster <- makePSOCKcluster(10)
-registerDoParallel(cores.cluster)
-
-
 # Read in data
 train_lm <- read_rds('data/avg_final_data/final_train_lm.rds')
 test_lm <- read_rds('data/avg_final_data/final_test_lm.rds')
 
 #save different country in separate df
 
+complete_lm <- train_lm %>% rbind(test_lm) %>% 
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>% 
+  ungroup() %>% 
+  filter(date >= as.Date("2020-01-19"))
+
 
 locations <- unique(train_lm$location)
 
 for(loc in locations){
   print(loc)
-  location_data <- train_lm %>% filter(location == loc)
+  location_data <- complete_lm %>% filter(location == loc)
   location_name <- make.names(loc)
   assign(location_name, location_data, envir = .GlobalEnv)
 }
+
 
 
 #check for stationary for each country
@@ -46,6 +47,8 @@ for(loc in locations){
     Stationary = adf_test$p.value < 0.05
   )
 }
+
+print(adf_results_list)
 
 # check adf_results_list
 # non-stationary: Japan, Sri Lanka

@@ -5,6 +5,7 @@ library(doParallel)
 library(forecast)
 library(lubridate)
 library(RcppRoll)
+library(tseries)
 
 
 tidymodels_prefer()
@@ -54,6 +55,36 @@ test_lm <- complete_lm_update %>% filter(date >= as.Date("2023-01-01")) %>%
   ungroup()
 
 
+#check for stationary for each country using weekly rolling avg data after removing observations 
+locations <- unique(complete_lm_update$location)
+
+for(loc in locations){
+  print(loc)
+  location_data <- complete_lm_update %>% filter(location == loc)
+  location_name <- make.names(loc)
+  assign(location_name, location_data, envir = .GlobalEnv)
+}
+
+
+adf_results_list <- list()
+
+for(loc in locations){
+  dataframe_name <- make.names(loc)
+  
+  df<-get(dataframe_name)
+  
+  adf_test <- adf.test(df$new_cases, alternative = 'stationary')
+  
+  adf_results_list[[loc]] <- list(
+    ADF_Statistic = adf_test$statistic,
+    P_Value = adf_test$p.value,
+    Stationary = adf_test$p.value < 0.05
+  )
+}
+
+print(adf_results_list)
+
+
 
 # 2. Find model trend by country
 train_lm_fix <- NULL
@@ -83,13 +114,13 @@ for (i in country_names) {
 
 for (loc in country_names) {
   location_data <- train_lm_fix %>% filter(location == loc)
-  location_name <- paste0("train_lm_fix_", make.names(loc))  # Create the name with "train_" prefix
+  location_name <- paste0("train_lm_fix_", make.names(loc))  
   assign(location_name, location_data, envir = .GlobalEnv)
 }
 
 for (loc in country_names) {
   location_data <- test_lm_fix %>% filter(location == loc)
-  location_name <- paste0("test_lm_fix_", make.names(loc))  # Create the name with "train_" prefix
+  location_name <- paste0("test_lm_fix_", make.names(loc))  
   assign(location_name, location_data, envir = .GlobalEnv)
 }
 

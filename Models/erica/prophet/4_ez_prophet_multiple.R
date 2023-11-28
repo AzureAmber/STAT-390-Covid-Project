@@ -17,11 +17,6 @@ complete_multi_prophet <- train_prophet %>% rbind(test_prophet) %>%
   filter(date >= as.Date("2020-01-19")) %>% 
   group_by(location) %>% 
   arrange(date, .by_group = TRUE) %>% 
-  mutate(
-    one_wk_lag = dplyr::lag(new_cases, n = 7, default = 0),
-    two_wk_lag = dplyr::lag(new_cases, n = 14, default = 0),
-    one_month_lag = dplyr::lag(new_cases, n = 30, default =0)
-  ) %>% 
   mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
   mutate(value = ifelse(is.na(value), new_cases, value)) %>%
   arrange(date, .by_group = TRUE) %>%
@@ -39,7 +34,7 @@ train_multi_prophet <- complete_multi_prophet %>%
   arrange(date, .by_group = TRUE) %>% 
   ungroup()
 
-test_multi_prophet <- complete_uni_prophet %>% 
+test_multi_prophet <- complete_multi_prophet %>% 
   filter(date >= as.Date ("2023-01-01")) %>% 
   group_by(location) %>% 
   arrange(date, .by_group = TRUE) %>% 
@@ -66,8 +61,8 @@ prophet_multi_model <- prophet_reg(
   growth = "linear", 
   season = "additive",
   seasonality_yearly = FALSE, 
-  seasonality_weekly = FALSE, 
-  seasonality_daily = TRUE,
+  seasonality_weekly = TRUE, 
+  seasonality_daily = FALSE,
   changepoint_num = tune(), 
   changepoint_range = tune(),
   prior_scale_changepoints = tune(),
@@ -96,7 +91,7 @@ prophet_multi_grid <- grid_regular(prophet_multi_params, levels = 3)
 # 5. Model Tuning
 # Setup parallel processing
 # detectCores(logical = FALSE)
-cores.cluster <- makePSOCKcluster(6)
+cores.cluster <- makePSOCKcluster(10)
 registerDoParallel(cores.cluster)
 
 prophet_multi_tuned <- tune_grid(
