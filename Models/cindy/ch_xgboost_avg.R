@@ -1,7 +1,7 @@
 #################################################################################
 # NOTE: This is using the new average finalized data, plus adding lag variables.#
 #################################################################################
-
+set.seed(1024)
 library(tidyverse)
 library(tidymodels)
 library(doParallel)
@@ -62,20 +62,26 @@ train_tree <- train_tree |>
   filter(date >= as.Date("2020-01-04")) |> 
   mutate(one_day_lag = lag(new_cases, n = 1),
          one_week_lag = lag(new_cases, n = 7),
-         one_month_lag = lag(new_cases, n = 30))
+         one_month_lag = lag(new_cases, n = 30)) |> 
+  group_by(date) |> 
+  arrange(date, .by_group = TRUE) |> 
+  ungroup()
 
 test_tree <- test_tree |> 
   mutate(one_day_lag = lag(new_cases, n = 1),
          one_week_lag = lag(new_cases, n = 7),
-         one_month_lag = lag(new_cases, n = 30))
+         one_month_lag = lag(new_cases, n = 30)) |> 
+  group_by(date) |> 
+  arrange(date, .by_group = TRUE) |> 
+  ungroup()
 
 # 2. Create validation sets ----
 # for every year train + 2 month test with 4-month increments
 data_folds <- rolling_origin(
   train_tree,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
+  initial = 23*366,
+  assess = 23*30*2,
+  skip = 23*30*4,
   cumulative = FALSE
 )
 
@@ -119,9 +125,6 @@ btree_params <- btree_wflow |>
 btree_grid <- grid_random(btree_params, size = 50)
 
 # 5. Model Tuning ----
-tic.clearlog()
-tic('xgboost')
-
 btree_tuned = tune_grid(
   btree_wflow,
   resamples = data_folds,
@@ -132,38 +135,33 @@ btree_tuned = tune_grid(
   metrics = metric_set(rmse, mae)
 )
 
-
-toc(log = TRUE)
-time_log <- tic.log(format = FALSE)
-btree_tictoc <- tibble(model = time_log[[1]]$msg, 
-                       runtime = time_log[[1]]$toc - time_log[[1]]$tic)
 stopCluster(cores.cluster)
 
 
-save(btree_tuned, btree_tictoc, file = "Models/cindy/results/btree_tuned_2.rda")
+save(btree_tuned, file = "Models/cindy/results/btree_tuned_2.rda")
 
 # 6. Review the best results ----
 load("Models/cindy/results/btree_tuned_2.rda")
 show_best(btree_tuned, metric = "rmse")
-# mtry min_n tree_depth learn_rate stop_iter .metric .estimator  mean     n std_err .config              
-# <int> <int>      <int>      <dbl>     <int> <chr>   <chr>      <dbl> <int>   <dbl> <chr>                
-#   28    19          4     0.0128        24 rmse    standard   2532.    41    467. Preprocessor1_Model06
-#   25    14          2     0.0113        15 rmse    standard   3238.    42    733. Preprocessor1_Model01
-#   14    24          8     0.0811        25 rmse    standard   3371.    42    768. Preprocessor1_Model04
-#   22    24         10     0.0509        11 rmse    standard   3540.    42    748. Preprocessor1_Model14
-#   24     9          4     0.0235        28 rmse    standard   3570.    44   1578. Preprocessor1_Model12
+# mtry min_n tree_depth learn_rate stop_iter .metric .estimator  mean     n std_err
+# <int> <int>      <int>      <dbl>     <int> <chr>   <chr>      <dbl> <int>   <dbl>
+#   25    13          7    0.0467         27 rmse    standard   3401.     4   1120.
+#   22    16         12    0.0108         41 rmse    standard   3734.     4   1017.
+#   21     5          3    0.294          46 rmse    standard   4220.     3   1143.
+#   21    23         12    0.00707        47 rmse    standard   4451.     5    927.
+#   18    12         17    0.00446        17 rmse    standard   4494.     5    807.  
 
 autoplot(btree_tuned, metric = "rmse")
 
 # 7. Fit Best Model ----
-# trees = 1000, mtry = 28, min_n = 19, tree_depth = 4, learn_rate = 0.0128, stop_iter = 24
+# trees = 1000, mtry = 25, min_n = 13, tree_depth = 7, learn_rate = 0.0467, stop_iter = 27
 btree_model <- boost_tree(
   trees = 1000,
-  mtry = 28, 
-  min_n = 19, 
-  tree_depth = 4,
-  learn_rate = 0.0128,
-  stop_iter = 24) |>
+  mtry = 25, 
+  min_n = 13, 
+  tree_depth = 7,
+  learn_rate = 0.0467,
+  stop_iter = 27) |>
   set_engine('xgboost') |>
   set_mode('regression')
 
@@ -180,7 +178,7 @@ btree_train_results <- predict(btree_fit, new_data = train_tree) |>
 
 btree_train_results |>
   group_by(location) |>
-  summarise(value = rmse(new_cases, pred)) |>
+  summarise(value = ModelMetrics::rmse(new_cases, pred)) |>
   arrange(location) |>
   print(n = 23) |>
   view()
@@ -210,7 +208,7 @@ for(country in unique_countries) {
     labs(x = "Date",
          y = "New Cases",
          title = plot_name,
-         subtitle = "boost_tree(trees = 500, mtry = 16, min_n =2, tree_depth = 2, learn_rate = 0.316, stop_iter = 50)",
+         subtitle = "boost_tree(trees = 1000, mtry = 25, min_n = 13, tree_depth = 7, learn_rate = 0.0467, stop_iter = 27)",
          caption = "XGBoost",
          color = "") +
     theme(plot.title = element_text(face = "bold", hjust = 0.5),
@@ -240,7 +238,7 @@ for(country in unique_countries) {
     labs(x = "Date",
          y = "New Cases",
          title = plot_name,
-         subtitle = "boost_tree(trees = 500, mtry = 16, min_n =2, tree_depth = 2, learn_rate = 0.316, stop_iter = 50)",
+         subtitle = "boost_tree(trees = 1000, mtry = 25, min_n = 13, tree_depth = 7, learn_rate = 0.0467, stop_iter = 27)",
          caption = "XGBoost",
          color = "") +
     theme(plot.title = element_text(face = "bold", hjust = 0.5),
@@ -257,7 +255,7 @@ for(country in unique_countries) {
 ## Table for test predictions ----
 btree_results <- btree_pred |>
   group_by(location) |>
-  summarise(value = rmse(new_cases, pred)) |>
+  summarise(value = ModelMetrics::rmse(new_cases, pred)) |>
   arrange(location) |> 
   view()
 
