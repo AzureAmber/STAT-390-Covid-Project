@@ -147,8 +147,13 @@ btree_fit <- fit(btree_wflow_tuned, data = train_tree)
 
 
 #predictions on country level
+
 final_btree_train <- train_tree %>%
   bind_cols(predict(btree_fit, new_data = train_tree)) %>%
+  mutate(.pred = exp(.pred)) %>% 
+  rename(pred = .pred)
+final_btree_test <- test_tree %>% 
+  bind_cols(predict(btree_fit, new_data = test_tree)) %>% 
   mutate(.pred = exp(.pred)) %>% 
   rename(pred = .pred)
 
@@ -157,13 +162,6 @@ btree_log_train_results <- final_btree_train %>%
   group_by(location) %>%
   summarize(rmse_train_pred = ModelMetrics::rmse(new_cases, pred)) %>%
   arrange(location)
-
-
-final_btree_test <- test_tree %>% 
-  bind_cols(predict(btree_fit, new_data = test_tree)) %>% 
-  mutate(.pred = exp(.pred)) %>% 
-  rename(pred = .pred)
-
 btree_log_test_results <- final_btree_test %>% 
   group_by(location) %>% 
   summarize(rmse_test_pred = ModelMetrics::rmse(new_cases, pred)) %>% 
