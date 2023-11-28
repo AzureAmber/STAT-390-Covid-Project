@@ -2,7 +2,8 @@ library(tidyverse)
 library(tidymodels)
 library(modeltime)
 library(doParallel)
-library(tictoc)
+library(RcppRoll)
+library(forecast)
 
 tidymodels_prefer()
 
@@ -11,60 +12,133 @@ tidymodels_prefer()
 # https://www.r-bloggers.com/2020/06/introducing-modeltime-tidy-time-series-forecasting-using-tidymodels/
 
 
-
 # Setup parallel processing
 # detectCores() # 8
-cores.cluster <- makePSOCKcluster(6)
+cores.cluster <- makePSOCKcluster(7)
 registerDoParallel(cores.cluster)
 
 
 # 1. Read in data
-train_lm <- read_rds('data/finalized_data/final_train_lm.rds')
-test_lm <- read_rds('data/finalized_data/final_test_lm.rds')
+train_lm <- read_rds('data/avg_final_data/final_train_lm.rds')
+test_lm <- read_rds('data/avg_final_data/final_test_lm.rds')
 
-# 2. Create validation sets for every year train + 2 month test with 4-month increments
-data_folds <- rolling_origin(
-  train_lm,
-  initial = 366,
-  assess = 30*2,
-  skip = 30*4,
-  cumulative = FALSE
-)
-data_folds
+
+complete_lm <- train_lm |> 
+  bind_rows(test_lm) |> 
+  filter(date >= as.Date("2020-01-04")) |>
+  group_by(location) |>
+  arrange(date, .by_group = TRUE) |>
+  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) |>
+  mutate(value = ifelse(is.na(value), new_cases, value)) |>
+  arrange(date, .by_group = TRUE) |>
+  slice(which(row_number() %% 7 == 0)) |>
+  mutate(
+    time_group = row_number(),
+    seasonality_group = row_number() %% 53) |>
+  ungroup() |>
+  mutate(seasonality_group = as.factor(seasonality_group))
+
+train_lm <- complete_lm |> 
+  filter(date < as.Date("2023-01-01")) |>
+  group_by(date) |>
+  arrange(date, .by_group = TRUE) |>
+  ungroup()
+
+test_lm <- complete_lm |> 
+  filter(date >= as.Date("2023-01-01")) |>
+  group_by(date) |>
+  arrange(date, .by_group = TRUE) |>
+  ungroup()
+
+# STATIONARITY CHECK IN arima_notes.R
+
+# 2. Find each country model trend
+train_lm_fix <- tibble()
+test_lm_fix <- tibble()
+
+unique_countries <- unique(train_lm$location)
+
+for (country in unique_countries) {
+  data <- train_lm |> filter(location == country)
+  complete_data <- complete_lm |> filter(location == country)
+  
+  country_data = 
+  # Find linear model
+  lm_model <- lm(value ~ 0 + time_group + seasonality_group,
+                data |> filter(between(time_group, 13, nrow(data) - 12)))
+  
+  x <- complete_data |>
+    mutate(
+      trend = predict(lm_model, newdata = complete_data),
+      slope = as.numeric(coef(lm_model)["time_group"]),
+      seasonality_add = trend - slope * time_group,
+      err = value - trend)|>
+    mutate_if(is.numeric, round, 5)
+  train_lm_fix <<- rbind(train_lm_fix, x |> filter(date < as.Date("2023-01-01")))
+  test_lm_fix <<- rbind(test_lm_fix, x |> filter(date >= as.Date("2023-01-01")))
+}
+
+# STATIONARITY CHECK FOR LINEAR IN arima_notes.R
+
+# Splitting data and storing in a list
+split_data <- function(data, prefix) {
+  split_list <- lapply(setNames(nm = unique_countries), function(loc) {
+    data %>% filter(location == loc)
+  })
+  names(split_list) <- paste0(prefix, make.names(unique_countries))
+  return(split_list)
+}
+
+# Apply the function to both datasets
+train_lm_fix_split <- split_data(train_lm_fix, "train_lm_fix_")
+test_lm_fix_split <- split_data(test_lm_fix, "test_lm_fix_")
+
 
 # 3. Define model, recipe, and workflow
+data_folds <- rolling_origin(
+  train_lm_fix,
+  initial = 53,
+  assess = 4*2,
+  skip = 4*4,
+  cumulative = FALSE
+)
+
+# Data for each country
+train_data <- train_lm_fix_split$train_lm_fix_Argentina
+test_data <- test_lm_fix_split$test_lm_fix_Argentina
+
+
+train_data |> 
+  select(err) |> 
+  ts() |> 
+  auto.arima() |> 
+  summary() 
+
+
 arima_model <- arima_reg(
   seasonal_period = "auto", # default
-  non_seasonal_ar = tune(), # p (0-5)
-  non_seasonal_differences = tune(), # d (0-2)
-  non_seasonal_ma = tune(), # q (0-5)
-  # values below based on example
-  seasonal_ar = 1, 
-  seasonal_differences = 0, 
-  seasonal_ma = 1
-  
+  non_seasonal_ar = 2, # p (0-5)
+  non_seasonal_differences = 0, # d (0-2)
+  non_seasonal_ma = 4, # q (0-5)
+  seasonal_ar = tune(), 
+  seasonal_differences = tune(), 
+  seasonal_ma = tune()
 ) |> 
   set_engine("arima")
 
+arima_recipe <- recipe(err ~ date, data = train_data) 
 
-arima_recipe <- recipe(new_cases ~ date, data = train_lm) 
-
-arima_wflow <- workflow() %>%
-  add_model(arima_model) %>%
+arima_wflow <- workflow()|>
+  add_model(arima_model)|>
   add_recipe(arima_recipe)
 
 # 4. Setup tuning grid
 arima_params <- arima_wflow |> 
-  extract_parameter_set_dials() |> 
-  update(non_seasonal_ar = non_seasonal_ar(c(0, 5)),
-         non_seasonal_ma = non_seasonal_ma(c(0, 5)))
+  extract_parameter_set_dials()
 
 arima_grid <- grid_regular(arima_params, levels = 3)
 
 # 5. Model Tuning
-tic.clearlog()
-tic('arima')
-
 arima_tuned <- tune_grid(
   arima_wflow,
   resamples = data_folds,
@@ -75,49 +149,97 @@ arima_tuned <- tune_grid(
   metrics = metric_set(rmse)
 )
 
-toc(log = TRUE)
-time_log <- tic.log(format = FALSE)
-arima_tictoc <- tibble(model = time_log[[1]]$msg, 
-                            runtime = time_log[[1]]$toc - time_log[[1]]$tic)
 stopCluster(cores.cluster)
 
-save(arima_tuned, arima_tictoc, file = "Models/cindy/results/arima_tuned_1.rda")
 
 # 6. Results
-show_best(btree_tuned, metric = "rmse")
+show_best(arima_tuned, metric = "rmse")
 
-# non_seasonal_ar non_seasonal_differences non_seasonal_ma .metric .estimator   mean     n std_err
-# <int>                    <int>           <int> <chr>   <chr>       <dbl> <int>   <dbl>
-#              5                        0               5 rmse    standard   41737.   201   3660.
-#              5                        0               2 rmse    standard   43099.   205   3734.
-#              5                        1               5 rmse    standard   43099.   201   3717.
-#              2                        1               5 rmse    standard   43122.   205   3704.
-#              2                        0               2 rmse    standard   43171.   205   3710.
-
-# NOTE: non_seasonal_ar = 5, non_seasonal_differences = 0, non_seasonal_ma = 5
-autoplot(arima_tuned, metric = "rmse")
-
-# 7. Fit best model
-arima_model_new <- arima_reg(
-  seasonal_period = "auto", # default
-  non_seasonal_ar = 5, # from above
-  non_seasonal_differences = 0, # from above
-  non_seasonal_ma = 5, # from above
-  # values below based on example
-  seasonal_ar = 1, 
-  seasonal_differences = 0, 
-  seasonal_ma = 1
-) |> 
-  set_engine("arima")
-
-arima_wflow_new <- workflow() %>%
-  add_model(arima_model_new) %>%
-  add_recipe(arima_recipe)
-
-arima_fit <- fit(arima_wflow_new, data = train_lm)
-
-final_arima_train <- train_lm %>%
-  bind_cols(predict(arima_fit, new_data = train_lm)) %>%
-  rename(pred = .pred) 
-
+# 
+# # 7. Fit best model ----
+# arima_model <- arima_reg(
+#   seasonal_period = "auto", # default
+#   non_seasonal_ar = 2, # p (0-5)
+#   non_seasonal_differences = 0, # d (0-2)
+#   non_seasonal_ma = 4, # q (0-5)
+#   seasonal_ar = 0,
+#   seasonal_differences = 0,
+#   seasonal_ma = 0
+# ) |>
+#   set_engine("arima")
+# 
+# arima_wflow <- workflow() |>
+#   add_model(arima_model) |>
+#   add_recipe(arima_recipe)
+# 
+# arima_fit <- fit(arima_wflow, data = train_data)
+# 
+# ## Fitting with train data ----
+# final_train <- train_data |>
+#   bind_cols(pred_err = arima_fit$fit$fit$fit$data$.fitted) |>
+#   mutate(pred = trend + pred_err) |>
+#   mutate_if(is.numeric, round, 5)
+# 
+# arima_train_plot <- ggplot(final_train |> filter(location == "Argentina"), aes(x = date)) +
+#   geom_line(aes(y = new_cases, color = "Actual New Cases")) +
+#   geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed")  +
+#   scale_y_continuous(n.breaks = 15) +
+#   scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
+#   theme_minimal() +
+#   labs(x = "Date",
+#        y = "New Cases",
+#        title = "Training: Actual vs. Predicted New Cases in Argentina",
+#        subtitle = "arima_reg(seasonal_period = auto, (p,d,q) = (2,0,4), (P,D,Q) = (0,0,0))",
+#        caption = "ARIMA",
+#        color = "") +
+#   theme(plot.title = element_text(face = "bold", hjust = 0.5),
+#         plot.subtitle = element_text(face = "italic", hjust = 0.5),
+#         legend.position = "bottom",
+#         panel.grid.minor = element_blank()) +
+#   scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+# 
+# ggsave(arima_train_plot, file = "Results/cindy/arima_avg/training_plots/arima_argentina.jpeg",  width = 10, height = 6)
+# 
+# 
+# # rmse of error prediction
+# ModelMetrics::rmse(final_train$err, final_train$pred_err) # 21071.19
+# # rmse of just linear trend
+# ModelMetrics::rmse(final_train$value, final_train$trend) # 83258.11
+# # rmse of linear trend + arima
+# ModelMetrics::rmse(final_train$value, final_train$pred) #21071.19
+# 
+# ## Fitting with test data ----
+# final_test <- test_data |>
+#   bind_cols(predict(arima_fit, new_data = test_data)) |> 
+#   mutate(pred_err = .pred) |>
+#   mutate(pred = trend + pred_err) |>
+#   mutate_if(is.numeric, round, 5)
+# 
+# arima_test_plot <- ggplot(final_train |> filter(location == "Germany"), aes(x = date)) +
+#   geom_line(aes(y = new_cases, color = "Actual New Cases")) +
+#   geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed")  +
+#   scale_y_continuous(n.breaks = 15) +
+#   scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
+#   theme_minimal() +
+#   labs(x = "Date",
+#        y = "New Cases",
+#        title = "Testing: Actual vs. Predicted New Cases in Germany",
+#        subtitle = "arima_reg(seasonal_period = auto, (p,d,q) = (4,0,1), (P,D,Q) = (0,0,0))",
+#        caption = "ARIMA",
+#        color = "") +
+#   theme(plot.title = element_text(face = "bold", hjust = 0.5),
+#         plot.subtitle = element_text(face = "italic", hjust = 0.5),
+#         legend.position = "bottom",
+#         panel.grid.minor = element_blank()) +
+#   scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+# 
+# ggsave(arima_test_plot, file = "Results/cindy/arima_avg/testing_plots/arima_germany.jpeg",  width = 10, height = 6)
+# 
+# 
+# # rmse of error prediction
+# ModelMetrics::rmse(final_test$err, final_test$pred_err)
+# # rmse of just linear trend
+# ModelMetrics::rmse(final_test$value, final_test$trend)
+# # rmse of linear trend + arima
+# ModelMetrics::rmse(final_test$value, final_test$pred)
 
