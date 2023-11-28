@@ -79,8 +79,11 @@ prophet_model <- prophet_reg(
   prior_scale_holidays = tune()) %>%
   set_engine('prophet')
 
-prophet_recipe <- recipe(value ~ date + location, data = train_prophet_log) %>%
-  step_dummy(all_nominal_predictors())
+prophet_recipe <- recipe(value ~ ., data = train_prophet_log) %>%
+  step_rm(day_of_week, continent) %>% 
+  step_corr(all_numeric_predictors(), threshold = 0.7) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
 # View(prophet_recipe %>% prep() %>% bake(new_data = NULL))
 
 prophet_wflow <- workflow() %>%
@@ -118,5 +121,5 @@ prophet_tuned %>% collect_metrics() %>%
   arrange(mean)
 
 # 6. Results
-prophetsingle_autoplot <- autoplot(prophet_tuned, metric = "rmse")
-best_prophet_single <- show_best(prophet_tuned, metric = "rmse")
+autoplot(prophet_tuned, metric = "rmse")
+show_best(prophet_tuned, metric = "rmse")
