@@ -168,12 +168,12 @@ final_multi_test <- test_prophet_log %>%
 library(ModelMetrics)
 result_multi_train <- final_multi_train %>%
   group_by(location) %>%
-  summarize(rmse_pred_train = ModelMetrics::rmse(new_cases, pred)) %>%
+  summarize(rmse_pred_train = ModelMetrics::rmse(exp(value), pred)) %>%
   arrange(location)
 
 result_multi_test <- final_multi_test %>%
   group_by(location) %>%
-  summarize(rmse_pred_test = ModelMetrics::rmse(new_cases, pred)) %>%
+  summarize(rmse_pred_test = ModelMetrics::rmse(exp(value), pred)) %>%
   arrange(location)
 
 results_multi <- result_multi_train %>% 
@@ -195,7 +195,7 @@ for (loc in countries){
   train_plot <- final_multi_train %>% 
     filter(location == loc) %>%
     ggplot(aes(x=date))+
-    geom_line(aes(y = new_cases, color = "Actual New Cases"))+
+    geom_line(aes(y = exp(value), color = "Actual New Cases"))+
     geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed")+
     scale_y_continuous(n.breaks = 15)+
     scale_x_date(date_breaks = "3 months", date_labels = "%b %y")+
@@ -218,7 +218,7 @@ for (loc in countries){
   test_plot <- final_multi_test %>% 
     filter(location == loc) %>% 
     ggplot(aes(x=date)) +
-    geom_line(aes(y = new_cases, color = "Actual New Cases")) +
+    geom_line(aes(y = exp(value), color = "Actual New Cases")) +
     geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
     scale_y_continuous(n.breaks = 15) + 
     scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
