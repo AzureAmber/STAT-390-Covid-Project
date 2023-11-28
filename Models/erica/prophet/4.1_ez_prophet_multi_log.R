@@ -123,3 +123,123 @@ prophet_tuned %>% collect_metrics() %>%
 # 6. Results
 autoplot(prophet_tuned, metric = "rmse")
 show_best(prophet_tuned, metric = "rmse")
+
+# 7. Fitting Model
+
+# changepoint_num = 50, changepoint_range = 0.6
+# prior_scale_changepoints = 100, prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001
+
+prophet_multi_model <- prophet_reg(
+  growth = "linear", 
+  season = "additive",
+  seasonality_yearly = FALSE, 
+  seasonality_weekly = TRUE, 
+  seasonality_daily = FALSE,
+  changepoint_num = 50, 
+  changepoint_range = 0.6,
+  prior_scale_changepoints = 100,
+  prior_scale_seasonality = 0.316, 
+  prior_scale_holidays = 0.001) %>%
+  set_engine('prophet')
+
+prophet_multi_recipe <- recipe(value ~ .,
+                               data = train_prophet_log) %>%
+  step_rm(day_of_week, continent, G20, G24) %>% 
+  step_corr(all_numeric_predictors(), threshold = 0.7) %>% 
+  step_dummy(all_nominal_predictors())
+
+
+prophet_multi_wflow_tuned <- workflow() %>%
+  add_model(prophet_multi_model) %>%
+  add_recipe(prophet_multi_recipe)
+
+prophet_multi_fit <- fit(prophet_multi_wflow_tuned, data = train_prophet_log)
+
+final_multi_train <- predict(prophet_multi_fit, new_data = train_prophet_log) %>% 
+  bind_cols(train_prophet_log) %>% 
+  mutate(.pred = exp(.pred)) %>%
+  rename(pred = .pred)
+
+final_multi_test <- test_prophet_log %>%
+  bind_cols(predict(prophet_multi_fit, new_data = test_prophet_log)) %>%
+  mutate(.pred = exp(.pred)) %>%
+  rename(pred = .pred)
+
+library(ModelMetrics)
+result_multi_train <- final_multi_train %>%
+  group_by(location) %>%
+  summarize(rmse_pred_train = ModelMetrics::rmse(new_cases, pred)) %>%
+  arrange(location)
+
+result_multi_test <- final_multi_test %>%
+  group_by(location) %>%
+  summarize(rmse_pred_test = ModelMetrics::rmse(new_cases, pred)) %>%
+  arrange(location)
+
+results_multi <- result_multi_train %>% 
+  inner_join(result_multi_test, by = "location", suffix = c("rmse_train_pred", "rmse_test_pred"))
+
+write.csv(results_multi, "Results/erica/prophet_multi_log/prophet_multi_log_rmse_results.csv", row.names = FALSE)
+
+## Training + Testing Visualization
+
+countries <- unique(final_multi_train$location)
+
+for (loc in countries){
+  train_title <- paste0("Training: Actual vs Predicted New Cases in ", loc, " in 2023")
+  train_file <- paste0("Results/erica/prophet_multi_log/", loc, "_train_pred.jpeg")
+  
+  test_title <- paste0("Testing: Actual vs Predicted New Cases in ", loc, " in 2023")
+  test_file <- paste0("Results/erica/prophet_multi_log/", loc, "_test_pred.jpeg")
+  
+  train_plot <- final_multi_train %>% 
+    filter(location == loc) %>%
+    ggplot(aes(x=date))+
+    geom_line(aes(y = new_cases, color = "Actual New Cases"))+
+    geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed")+
+    scale_y_continuous(n.breaks = 15)+
+    scale_x_date(date_breaks = "3 months", date_labels = "%b %y")+
+    theme_minimal()+
+    labs(x = "Date",
+         y = "New Cases",
+         title = train_title,
+         subtitle = "prophet_reg(changepoint_num = 50, changepoint_range = 0.6,
+       prior_scale_changepoints = 100, prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001)",
+         caption = "Prophet Multivariate Log",
+         color = "")+
+    theme(plot.title = element_text(face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(face = "italic", hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
+    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+  
+  ggsave(train_plot, file = train_file, width=8, height =7, dpi = 300)
+  
+  test_plot <- final_multi_test %>% 
+    filter(location == loc) %>% 
+    ggplot(aes(x=date)) +
+    geom_line(aes(y = new_cases, color = "Actual New Cases")) +
+    geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+    scale_y_continuous(n.breaks = 15) + 
+    scale_x_date(date_breaks = "3 months", date_labels = "%b %y") +
+    theme_minimal() + 
+    labs(x = "Date", 
+         y = "New Cases", 
+         title = test_title,
+         subtitle = "prophet_reg(changepoint_num = 50, changepoint_range = 0.6,
+       prior_scale_changepoints = 100, prior_scale_seasonality = 0.316, prior_scale_holidays = 0.001",
+         caption = "Prophet Multivariate Log",
+         color = "") + 
+    theme(plot.title = element_text(face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(face = "italic", hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
+    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+  
+  ggsave(test_plot, file = test_file, width=8, height =7, dpi = 300)
+  
+}
+
+
+
+
