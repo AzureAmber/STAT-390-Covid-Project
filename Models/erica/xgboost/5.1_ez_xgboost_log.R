@@ -58,6 +58,7 @@ btree_recipe <- recipe(new_cases_log ~ ., data = train_tree) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
     G24 = ifelse(G24, 1, 0)) %>%
+  step_corr(all_numeric_predictors(), threshold = 0.7) %>% 
   step_dummy(all_nominal_predictors()) %>% 
   step_normalize(all_numeric_predictors())
 
@@ -136,6 +137,7 @@ btree_recipe <- recipe(new_cases_log ~ ., data = train_tree) %>%
   step_mutate(
     G20 = ifelse(G20, 1, 0),
     G24 = ifelse(G24, 1, 0)) %>%
+  step_corr(all_numeric_predictors(), threshold = 0.7) %>% 
   step_dummy(all_nominal_predictors()) %>% 
   step_normalize(all_numeric_predictors())
 
