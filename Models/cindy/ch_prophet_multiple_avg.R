@@ -149,7 +149,7 @@ unique_countries <- unique(train_lm$location)
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country, "in 2023")
+  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country)
   file_name <- paste("Results/cindy/prophet_multi_avg/training_plots/prophet_multi_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
 
   prophet_country <- ggplot(prophet_multi_train_results |> filter(location == country)) +
@@ -180,7 +180,7 @@ for(country in unique_countries) {
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country, "in 2023")
+  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country)
   file_name <- paste("Results/cindy/prophet_multi_avg/testing_plots/prophet_multi_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
 
   prophet_country <- ggplot(prophet_multi_pred |> filter(location == country)) +

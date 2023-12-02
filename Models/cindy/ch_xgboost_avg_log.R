@@ -15,7 +15,7 @@ library(tictoc)
 
 # Setup parallel processing
 # detectCores() # 8
-cores.cluster <- makePSOCKcluster(5)
+cores.cluster <- makePSOCKcluster(7)
 registerDoParallel(cores.cluster)
 
 
@@ -199,7 +199,7 @@ unique_countries <- unique(train_tree$location)
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country, "in 2023")
+  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country)
   file_name <- paste("Results/cindy/xgboost_avg_log/training_plots/xgboost_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
 
   xgboost_country <- ggplot(btree_train_results |> filter(location == country)) +
@@ -229,7 +229,7 @@ for(country in unique_countries) {
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country, "in 2023")
+  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country)
   file_name <- paste("Results/cindy/xgboost_avg_log/testing_plots/xgboost_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
 
   xgboost_country <- ggplot(btree_pred |> filter(location == country)) +

@@ -34,17 +34,29 @@ first_covid <- train_lm |>
 complete_lm <- train_lm |> 
   bind_rows(test_lm) |> 
   filter(date >= as.Date("2020-01-04")) |> # first Covid obs
+  group_by(location) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA)) %>%
+  mutate(value = ifelse(is.na(value), new_cases, value)) %>%
+  arrange(date, .by_group = TRUE) %>%
+  slice(which(row_number() %% 7 == 0)) %>%
+  mutate(
+    time_group = row_number(),
+    seasonality_group = row_number() %% 53) %>%
+  ungroup() %>%
+  mutate(seasonality_group = as.factor(seasonality_group))
+
+train_lm <- complete_lm |> 
+  filter(date < as.Date("2023-01-01")) |> 
   group_by(date) |> 
   arrange(date, .by_group = TRUE) |> 
-  mutate(value = roll_mean(new_cases, 7, align = "right", fill = NA),
-         value = ifelse(is.na(value), new_cases, value), 
-         time_group = row_number(),
-         seasonality_group = factor(row_number() %% 53)) |> 
-  slice(seq(1, n(), by = 7)) |> 
   ungroup()
 
-train_lm <- complete_lm |> filter(date < as.Date("2023-01-01"))
-test_lm <- complete_lm |> filter(date >= as.Date("2023-01-01"))
+test_lm <- complete_lm |> 
+  filter(date >= as.Date("2023-01-01")) |> 
+  group_by(date) |> 
+  arrange(date, .by_group = TRUE) |> 
+  ungroup()
 
 # 2. Create validation sets ----
 # for every year train + 2 month test with 4-month increments
@@ -70,7 +82,8 @@ prophet_model <- prophet_reg() |>
              prior_scale_holidays = tune(),# strength of holidays component
              prior_scale_changepoints = tune()) 
 
-prophet_recipe <- recipe(new_cases ~ date + location, data = train_lm) 
+prophet_recipe <- recipe(new_cases ~ date + location, data = train_lm) |> 
+  step_dummy(all_nominal_predictors())
 # NOTE TO SELF: needed to include location in recipe as well
 #               since we are predicting on country level
 
@@ -85,7 +98,7 @@ prophet_wflow <- workflow() %>%
 prophet_params <- prophet_wflow |> 
   extract_parameter_set_dials()
 
-prophet_grid <- grid_regular(prophet_params, levels = 3) 
+prophet_grid <- grid_random(prophet_params, size = 50) 
 
 # 5. Model Tuning ----
 prophet_tuned <- tune_grid(
@@ -106,16 +119,16 @@ save(prophet_tuned, file = "Models/cindy/results/prophet_tuned_2.rda")
 load("Models/cindy/results/prophet_tuned_2.rda")
 show_best(prophet_tuned, metric = "rmse")
 
-# changepoint_num changepoint_range prior_scale_seasonality prior_scale_holidays prior_scale_changepoints
-# <int>             <dbl>                   <dbl>                <dbl>                    <dbl>
-#             25               0.6                   0.001                0.001                    0.316
-#             25               0.6                   0.001                0.316                    0.316
-#             25               0.6                   0.001              100                        0.316
-#             50               0.6                   0.001                0.001                    0.316
-#             50               0.6                   0.001                0.316                    0.316
+# changepoint_num changepoint_range prior_scale_seasonal…¹ prior_scale_holidays prior_scale_changepo…² .metric
+# <int>             <dbl>                  <dbl>                <dbl>                  <dbl> <chr>  
+#               4             0.785               32.1                    1.74                  0.0699 rmse   
+#              29             0.862                0.00144               23.1                   0.0346 rmse   
+#              34             0.731                5.24                   0.247                56.2    rmse   
+#              32             0.737                0.193                  4.39                  1.20   rmse   
+#              49             0.722                0.0108                 0.342                34.7    rmse   
 
-# changepoint_num = 25, changepoint_range = 0.6, prior_scale_changepoint = 0.903
-#       prior_scale_holidays = 0.16, prior_scale_seasonality = 0.001
+# changepoint_num = 4, changepoint_range = 0.785, prior_scale_changepoint = 0.0699
+#       prior_scale_holidays = 1.74, prior_scale_seasonality = 32.1
 
 autoplot(prophet_tuned, metric = "rmse")
 
@@ -130,8 +143,8 @@ prophet_train_results <- predict(prophet_fit, new_data = train_lm) |>
   bind_cols(train_lm) |>
   rename(pred = .pred)
 
-prophet_train_results |> 
-  group_by(location) |> 
+prophet_train_results |>
+  group_by(location) |>
   summarise(value = ModelMetrics::rmse(new_cases, pred)) |>
   arrange(location) |>
   print(n = 23) |>
@@ -146,7 +159,7 @@ prophet_pred <- predict(prophet_fit, new_data = test_lm) %>%
 prophet_result <- prophet_pred |>
   group_by(location) |>
   summarise(value = ModelMetrics::rmse(new_cases, pred)) |>
-  arrange(location) |> 
+  arrange(location) |>
   print(n = 23) |>
   view()
 
@@ -159,7 +172,7 @@ unique_countries <- unique(train_lm$location)
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country, "in 2023")
+  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country)
   file_name <- paste("Results/cindy/prophet_single_avg/training_plots/prophet_single_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
 
   prophet_country <- ggplot(prophet_train_results %>% filter(location == country)) +
@@ -171,8 +184,8 @@ for(country in unique_countries) {
     labs(x = "Date",
          y = "New Cases",
          title = plot_name,
-         subtitle = "prophet_reg(changepoint_num = 25, changepoint_range = 0.6, 
-         prior_scale_changepoint = 0.903, prior_scale_holidays = 0.16, prior_scale_seasonality = 0.001)",
+         subtitle = "prophet_reg(changepoint_num = 4, changepoint_range = 0.785, 
+         prior_scale_changepoint = 0.0699, prior_scale_holidays = 1.74, prior_scale_seasonality = 32.1)",
          caption = "Prophet Univariate",
          color = "") +
     theme(plot.title = element_text(face = "bold", hjust = 0.5),
@@ -190,7 +203,7 @@ for(country in unique_countries) {
 # Loop through each country
 for(country in unique_countries) {
   # Create plot for the current country
-  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country, "in 2023")
+  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country)
   file_name <- paste("Results/cindy/prophet_single_avg/testing_plots/prophet_single_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
 
   prophet_country <- ggplot(prophet_pred %>% filter(location == country)) +
@@ -202,8 +215,8 @@ for(country in unique_countries) {
     labs(x = "Date",
          y = "New Cases",
          title = plot_name,
-         subtitle = "prophet_reg(changepoint_num = 25, changepoint_range = 0.6, 
-         prior_scale_changepoint = 0.903, prior_scale_holidays = 0.16, prior_scale_seasonality = 0.001)",
+         subtitle = "prophet_reg(changepoint_num = 4, changepoint_range = 0.785, 
+         prior_scale_changepoint = 0.0699, prior_scale_holidays = 1.74, prior_scale_seasonality = 32.1)",
          caption = "Prophet Univariate",
          color = "") +
     theme(plot.title = element_text(face = "bold", hjust = 0.5),
@@ -221,11 +234,11 @@ for(country in unique_countries) {
 prophet_results <- prophet_pred %>%
   group_by(location) %>%
   summarise(value = ModelMetrics::rmse(new_cases, pred)) %>%
-  arrange(location) |> 
+  arrange(location) |>
   view()
 
 
-save(prophet_train_results, prophet_pred, prophet_results, file = "Models/cindy/results/prophet_single_avg.rda")
+# save(prophet_train_results, prophet_pred, prophet_results, file = "Models/cindy/results/prophet_single_avg.rda")
 
 
 
