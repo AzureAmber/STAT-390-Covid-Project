@@ -3,6 +3,7 @@ library(tidymodels)
 library(modeltime)
 library(doParallel)
 library(RcppRoll) # for rolling functions
+set.seed(1024)
 
 # 1. Read in data ----
 train_lm <- read_rds('data/avg_final_data/final_train_lm.rds')
@@ -58,7 +59,7 @@ test_lm <- complete_lm |>
 
 # 2. Model trend by country ----
 # Seting up parallel processing
-cores.cluster <- makePSOCKcluster(5) 
+cores.cluster <- makePSOCKcluster(10) 
 registerDoParallel(cores.cluster)
 
 train_lm_fix <- tibble()
@@ -170,6 +171,55 @@ for (country in unique_countries) {
     pdq = best_pdq, 
     PDQ = best_PDQ
   ))
+  
+  # Make training and testing plots
+  plot_name <- paste("Training: Actual vs. Predicted New Cases in", country)
+  file_name <- paste("Results/cindy/autoarima_avg/training_plots/autoarima_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
+  
+  train_plot <- ggplot(final_train, aes(x = date)) +
+    geom_line(aes(y = value, color = "Actual New Cases")) +
+    geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+    scale_y_continuous(n.breaks = 15) +
+    scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
+    theme_minimal() + 
+    labs(title = plot_name,
+         subtitle = paste0("auto_arima((p,d,q) = (", best_pdq,"), (P,D,Q) = (", best_PDQ, "))"),
+         caption = "AutoARIMA",
+         color = "",
+         x = "Date",
+         y = "New Cases",
+         ) +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(face = "italic", hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
+    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+    
+  ggsave(file_name, train_plot, width = 10, height = 6)
+  
+  plot_name <- paste("Testing: Actual vs. Predicted New Cases in", country)
+  file_name <- paste("Results/cindy/autoarima_avg/testing_plots/autoarima_", gsub(" ", "_", tolower(country)), ".jpeg", sep = "")
+  
+  test_plot <- ggplot(final_test, aes(x = date)) +
+    geom_line(aes(y = value, color = "Actual New Cases")) +
+    geom_line(aes(y = pred, color = "Predicted New Cases"), linetype = "dashed") +
+    scale_y_continuous(n.breaks = 15) +
+    scale_x_date(date_breaks = "2 months", date_labels = "%b %y") +
+    theme_minimal() + 
+    labs(title = plot_name,
+         subtitle = paste0("auto_arima((p,d,q) = (", best_pdq,"), (P,D,Q) = (", best_PDQ, "))"),
+         caption = "AutoARIMA",
+         color = "",
+         x = "Date",
+         y = "New Cases",
+    ) +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5),
+          plot.subtitle = element_text(face = "italic", hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.minor = element_blank()) +
+    scale_color_manual(values = c("Actual New Cases" = "red", "Predicted New Cases" = "blue"))
+  
+  ggsave(file_name, test_plot, width = 10, height = 6)
 }
 
 stopCluster(cores.cluster)
